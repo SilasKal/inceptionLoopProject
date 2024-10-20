@@ -1,45 +1,52 @@
 import torch
 import torch.nn as nn
-from torch.utils.data import Dataset, DataLoader
-import matplotlib.pyplot as plt  # Added for image display
+import torch.optim as optim
+from torch.utils.data import DataLoader, Dataset
+from tqdm import tqdm
 
-# Core CNN Model (larger version)
+# Core CNN
 class CoreCNN(nn.Module):
     def __init__(self):
         super(CoreCNN, self).__init__()
-        self.conv_layers = nn.Sequential(
-            nn.Conv2d(1, 64, kernel_size=9, padding=4),   # Increased filters from 32 to 64
-            nn.ELU(),
-            nn.Conv2d(64, 128, kernel_size=7, padding=3),  # Increased filters from 64 to 128
-            nn.ELU(),
-            nn.Conv2d(128, 256, kernel_size=5, padding=2),  # Increased filters from 128 to 256
-            nn.ELU(),
-            nn.Conv2d(256, 512, kernel_size=3, padding=1),  # Added a new convolutional layer
-            nn.ELU(),
+        self.layers = nn.Sequential(
+            nn.Conv2d(3, 32, kernel_size=3, padding=1),  # Adjusted for 3 input channels
+            nn.ReLU(),
+            nn.MaxPool2d(kernel_size=2, stride=2),
+            nn.Conv2d(32, 64, kernel_size=3, padding=1),
+            nn.ReLU(),
+            nn.MaxPool2d(kernel_size=2, stride=2),
+            nn.Conv2d(64, 128, kernel_size=3, padding=1),
+            nn.ReLU(),
+            nn.MaxPool2d(kernel_size=2, stride=2),
+            nn.Conv2d(128, 256, kernel_size=3, padding=1),
+            nn.ReLU(),
+            nn.MaxPool2d(kernel_size=2, stride=2),
+            nn.Conv2d(256, 512, kernel_size=3, padding=1),
+            nn.ReLU(),
+            nn.MaxPool2d(kernel_size=2, stride=2),
         )
 
     def forward(self, x):
-        return self.conv_layers(x)  # Output shape: [batch_size, 512, 64, 64]
+        return self.layers(x)  # Output shape: [batch_size, 512, 60, 80]
 
-# Modified Readout Layer to output 64x64 images
+# Image Readout
 class ImageReadout(nn.Module):
     def __init__(self):
         super(ImageReadout, self).__init__()
         self.readout_layers = nn.Sequential(
-            nn.Conv2d(512, 256, kernel_size=3, padding=1),  # Adjusted input channels
-            nn.ELU(),
+            nn.Conv2d(512, 256, kernel_size=3, padding=1),
+            nn.ReLU(),
             nn.Conv2d(256, 128, kernel_size=3, padding=1),
-            nn.ELU(),
+            nn.ReLU(),
             nn.Conv2d(128, 64, kernel_size=3, padding=1),
-            nn.ELU(),
-            nn.Conv2d(64, 32, kernel_size=3, padding=1),
-            nn.ELU(),
-            nn.Conv2d(32, 1, kernel_size=3, padding=1),
+            nn.ReLU(),
+            nn.Conv2d(64, 1, kernel_size=3, padding=1),
             nn.Sigmoid(),  # To ensure output pixel values are between 0 and 1
+            nn.Upsample(size=(270, 320), mode='bilinear', align_corners=False)  # Upsample to 270x320
         )
 
     def forward(self, x):
-        return self.readout_layers(x)  # Output shape: [batch_size, 1, 64, 64]
+        return self.readout_layers(x)  # Output shape: [batch_size, 1, 270, 320]
 
 # Full Model
 class NeuralImageToImageModel(nn.Module):
@@ -51,7 +58,7 @@ class NeuralImageToImageModel(nn.Module):
     def forward(self, x):
         features = self.core(x)
         output_image = self.readout(features)
-        return output_image  # Output shape: [batch_size, 1, 64, 64]
+        return output_image  # Output shape: [batch_size, 1, 270, 320]
 
 # Custom Dataset
 class RandomImageDataset(Dataset):
@@ -59,21 +66,25 @@ class RandomImageDataset(Dataset):
         super(RandomImageDataset, self).__init__()
         self.num_images = num_images
         # Generate random images with values between 0 and 1
-        self.images = torch.rand(num_images, 1, 270, 320)
+        self.images = torch.rand(num_images, 3, 1920, 2560)
 
     def __len__(self):
         return self.num_images
 
     def __getitem__(self, idx):
         input_image = self.images[idx]
-        target_image = self.images[idx]  # Use the same image as target
+        target_image = torch.rand(1, 270, 320)  # Random target image
         return input_image, target_image
 
 # Training function
 def train_model(model, dataloader, criterion, optimizer, num_epochs):
     for epoch in range(num_epochs):
         epoch_loss = 0.0
-        for batch_idx, (inputs, targets) in enumerate(dataloader):
+        progress_bar = tqdm(dataloader, desc=f"Epoch {epoch+1}/{num_epochs}")
+        for batch_idx, (inputs, targets) in enumerate(progress_bar):
+            inputs = inputs.to(device)
+            targets = targets.to(device)
+
             optimizer.zero_grad()
             outputs = model(inputs)
             loss = criterion(outputs, targets)
@@ -81,6 +92,7 @@ def train_model(model, dataloader, criterion, optimizer, num_epochs):
             optimizer.step()
 
             epoch_loss += loss.item()
+            progress_bar.set_postfix(loss=loss.item())
 
         average_loss = epoch_loss / len(dataloader)
         print(f"Epoch [{epoch+1}/{num_epochs}], Loss: {average_loss:.4f}")
@@ -95,13 +107,14 @@ def predict_image(model, input_image):
 
     # Convert tensors to numpy arrays for plotting
     input_image_np = input_image.squeeze().cpu().numpy()
+    print(input_image_np.shape)
     output_image_np = output_image.squeeze().cpu().numpy()
-
+    print(output_image_np.shape)
     # Plot the images
     plt.figure(figsize=(8, 4))
     plt.subplot(1, 2, 1)
     plt.title('Input Image')
-    plt.imshow(input_image_np, cmap='gray')
+    plt.imshow(input_image_np.transpose(1, 2, 0))  # Transpose to (H, W, C)
     plt.axis('off')
 
     plt.subplot(1, 2, 2)
@@ -116,7 +129,8 @@ def predict_image(model, input_image):
 # Main script
 if __name__ == "__main__":
     # Check for MPS device
-    device = torch.device('mps' if torch.backends.mps.is_available() else 'cpu')
+    # device = torch.device('mps' if torch.backends.mps.is_available() else 'cpu')
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f'Using device: {device}')
 
     # Set random seed for reproducibility
@@ -138,10 +152,11 @@ if __name__ == "__main__":
     scaler = torch.cuda.amp.GradScaler()
 
     # Train the model
-    num_epochs = 10
+    num_epochs = 2
     for epoch in range(num_epochs):
         epoch_loss = 0.0
-        for batch_idx, (inputs, targets) in enumerate(dataloader):
+        progress_bar = tqdm(dataloader, desc=f"Epoch {epoch+1}/{num_epochs}")
+        for batch_idx, (inputs, targets) in enumerate(progress_bar):
             inputs = inputs.to(device)
             targets = targets.to(device)
 
@@ -153,6 +168,7 @@ if __name__ == "__main__":
             scaler.update()
 
             epoch_loss += loss.item()
+            progress_bar.set_postfix(loss=loss.item())
 
         average_loss = epoch_loss / len(dataloader)
         print(f"Epoch [{epoch+1}/{num_epochs}], Loss: {average_loss:.4f}")
@@ -160,5 +176,5 @@ if __name__ == "__main__":
     torch.save(model.state_dict(), 'trained_model_weights.pth')
 
     # Example prediction
-    test_input_image = torch.rand(1, 1, 270, 320).to(device)
+    test_input_image = torch.rand(1, 3, 1920, 2560).to(device)
     predict_image(model, test_input_image)
