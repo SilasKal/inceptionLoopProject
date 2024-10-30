@@ -4,9 +4,10 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="f78c631b-bdfd-485a-bf23-1f19675f09ad" name="Changes" comment="updated data_loading.py to load data with roi and updated model.py to support the loaded data">
+    <list default="true" id="f78c631b-bdfd-485a-bf23-1f19675f09ad" name="Changes" comment="small changes">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/data_loading.py" beforeDir="false" afterPath="$PROJECT_DIR$/data_loading.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/model.py" beforeDir="false" afterPath="$PROJECT_DIR$/model.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -32,7 +33,7 @@
   <component name="GithubPullRequestsUISettings">{
   &quot;selectedUrlAndAccountId&quot;: {
     &quot;url&quot;: &quot;https://github.com/SilasKal/inceptionLoopProject.git&quot;,
-    &quot;accountId&quot;: &quot;33f26482-fae3-4772-b8b5-cc1b174fcf13&quot;
+    &quot;accountId&quot;: &quot;79540366-c440-4850-82be-81634f272ccf&quot;
   }
 }</component>
   <component name="ProjectColorInfo">{
@@ -51,14 +52,13 @@
     &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
     &quot;SHARE_PROJECT_CONFIGURATION_FILES&quot;: &quot;true&quot;,
     &quot;git-widget-placeholder&quot;: &quot;main&quot;,
-    &quot;ignore.virus.scanning.warn.message&quot;: &quot;true&quot;,
     &quot;last_opened_file_path&quot;: &quot;C:/Users/silas/PycharmProjects/inceptionLoopProject/Images&quot;,
     &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
     &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
     &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
     &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
     &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
-    &quot;settings.editor.selected.configurable&quot;: &quot;preferences.updates&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;vcs.Git&quot;,
     &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
   }
 }</component>
@@ -121,16 +121,16 @@
     </configuration>
     <recent_temporary>
       <list>
-        <item itemvalue="Python.model" />
         <item itemvalue="Python.data_loading" />
+        <item itemvalue="Python.model" />
       </list>
     </recent_temporary>
   </component>
   <component name="SharedIndexes">
     <attachedChunks>
       <set>
-        <option value="bundled-js-predefined-1d06a55b98c1-0b3e54e931b4-JavaScript-PY-241.19416.19" />
-        <option value="bundled-python-sdk-337b0a7a993a-2767605e8bc2-com.jetbrains.pycharm.pro.sharedIndexes.bundled-PY-241.19416.19" />
+        <option value="bundled-js-predefined-1d06a55b98c1-0b3e54e931b4-JavaScript-PY-241.19072.16" />
+        <option value="bundled-python-sdk-8336bb23522e-2767605e8bc2-com.jetbrains.pycharm.pro.sharedIndexes.bundled-PY-241.19072.16" />
       </set>
     </attachedChunks>
   </component>
@@ -146,22 +146,12 @@
       <workItem from="1728909606012" duration="4385000" />
       <workItem from="1728991349714" duration="781000" />
       <workItem from="1728996504165" duration="6363000" />
-      <workItem from="1729459115037" duration="209000" />
-      <workItem from="1729459358295" duration="44000" />
-      <workItem from="1729459407416" duration="33000" />
-      <workItem from="1729520798185" duration="386000" />
-      <workItem from="1729521199345" duration="2122000" />
-      <workItem from="1729707738164" duration="4960000" />
+      <workItem from="1729719166151" duration="619000" />
+      <workItem from="1729767777862" duration="8189000" />
+      <workItem from="1729959232093" duration="139000" />
+      <workItem from="1730296108313" duration="6003000" />
+      <workItem from="1730302214782" duration="11846000" />
     </task>
-    <task id="LOCAL-00001" summary="updated data_loading.py to load data with roi and updated model.py to support the loaded data">
-      <option name="closed" value="true" />
-      <created>1729459175409</created>
-      <option name="number" value="00001" />
-      <option name="presentableId" value="LOCAL-00001" />
-      <option name="project" value="LOCAL" />
-      <updated>1729459175409</updated>
-    </task>
-    <option name="localTasksCounter" value="2" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -181,11 +171,10 @@
   <component name="VcsManagerConfiguration">
     <MESSAGE value="loading data and initial model" />
     <MESSAGE value="small changes" />
-    <MESSAGE value="updated data_loading.py to load data with roi and updated model.py to support the loaded data" />
-    <option name="LAST_COMMIT_MESSAGE" value="updated data_loading.py to load data with roi and updated model.py to support the loaded data" />
+    <option name="LAST_COMMIT_MESSAGE" value="small changes" />
   </component>
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
-    <SUITE FILE_PATH="coverage/inceptionLoopProject$model.coverage" NAME="model Coverage Results" MODIFIED="1729002850210" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
-    <SUITE FILE_PATH="coverage/inceptionLoopProject$data_loading.coverage" NAME="data_loading Coverage Results" MODIFIED="1729712710007" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/inceptionLoopProject$data_loading.coverage" NAME="data_loading Coverage Results" MODIFIED="1730316873094" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/inceptionLoopProject$model.coverage" NAME="model Coverage Results" MODIFIED="1730316645517" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
   </component>
 </project>
