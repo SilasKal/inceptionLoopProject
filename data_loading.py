@@ -15,38 +15,11 @@ import scipy.ndimage as snd
 def load_npy(data_name):
     # Load the .npy file
     data = np.load(data_name)
-
     # Now 'data' is a NumPy array containing the data from the .npy file
     print('Data shape:', data.shape)
     # print(data)
     plt.imshow(data)
     plt.show()
-    # Loop through the first 10 items in data[0]
-    # for counter, i in enumerate(data[0]):
-    #     if counter < 10:
-    #         print('Item shape:', i.shape, 'Counter:', counter)
-    #
-    #         # Extract the image
-    #         image = data[0][counter][0]
-    #         print('Image shape:', image.shape)
-    #
-    #         # Compute the mean and standard deviation for the current image
-    #         # MU = np.mean(image)
-    #         # SD = np.std(image)
-    #         # print(f'Image {counter} - Mean: {MU}, Std: {SD}')
-    #
-    #         # Display the image using imshow
-    #         # plt.imshow(
-    #         #     image,
-    #         #     interpolation="nearest",
-    #         #     cmap="binary_r",
-    #         #     vmin=MU - 2 * SD,
-    #         #     vmax=MU + 2 * SD
-    #         # )
-    #         plt.imshow(image)
-    #         plt.colorbar()
-    #         plt.title(f'Image {counter}')
-    #         plt.show()
 
 def load_dict(data_name):
     # Replace 'your_data.npy' with the path to your .npy file
@@ -163,9 +136,11 @@ def lowhigh_normalize(frame, mask=None, sig_high=None, sig_low=None):
     ##kernel = t.reshape(11,1)*t.reshape(1,11)
     ##low_mask = snd.convolve(m2, kernel, mode='constant', cval=0.0)
     ##low_data = snd.convolve(data, kernel, mode='constant', cval=0.0)/low_mask
-
+    # print(m, "mask")
+    # print(sig_high, sig_low)
     low_data[np.logical_not(m)] = 0
     high_mask = snd.gaussian_filter(m, sig_high, mode='constant', cval=0)
+    # print(high_mask)
     highlow_data = low_data - 1. * snd.gaussian_filter(low_data, sig_high, mode='constant', cval=0) / high_mask
     highlow_data[np.logical_not(mask)] = np.nan
     # highlow_data[np.logical_not(mask)] = 0
@@ -183,13 +158,13 @@ def match_pictures_with_response(stims_param_name="stimparams.dict", roi_data_na
     response_data = np.load(response_data_name).squeeze()
     # response_data = np.where(roi_data == 0, 0, response_data)
     resolution = 1000/182
-    plt.imshow(response_data[100])
-    plt.title("Original Response before normalizing")
-    plt.colorbar()
-    plt.show()
+    # plt.imshow(response_data[0])
+    # plt.title("Original Response before normalizing")
+    # plt.colorbar()
+    # plt.show()
     print(response_data[0].shape)
-    print(response_data[0])
-    # response_data = lowhigh_normalize(frame=response_data, mask=roi_data, sig_high=resolution, sig_low=100)
+    # print(response_data[0])
+    response_data = lowhigh_normalize(frame=response_data, mask=roi_data, sig_high=100/resolution, sig_low=1)
     images_responses = []
     # print(response_data.shape)
     # for id, tif_file in enumerate(tif_files):
@@ -201,32 +176,43 @@ def match_pictures_with_response(stims_param_name="stimparams.dict", roi_data_na
     #     images[id] = curr_image
     print(f"{response_data.shape} response data shape")
     #     images_respones.append([curr_image, response_data[id - 1]])
+    counter = 0
     for i, id in enumerate(picture_ids):
-        #print(i, id)
+        print(i, id, "i, id")
         if id < 151:
             curr_picture = find_image(id-1)
             if curr_picture is not None:
                 if curr_picture.shape != (1920, 2560):
                     print(curr_picture.shape, "Not right format")
                     continue
-                images_responses.append([curr_picture, response_data[i-1]])
+                images_responses.append([curr_picture, response_data[i]])
+            else:
+                print("None")
         else:
-            print(i, id)
+            print("ID too high found", id)
+    print(counter)
     print(f"{len(images_responses)}, len image responses")
     images = np.zeros([147, 1920, 2560])
     responses_images = np.zeros([147, 270, 320]) # fix with mask
     for j, tuple in enumerate(images_responses):
         images[j] = tuple[0]
         responses_images[j] = tuple[1]
-    plt.imshow(response_data[10])
-    plt.title("Original Response")
-    plt.colorbar()
-    plt.show()
-    plt.imshow(images[0])
-    plt.show()
+    num_responses_to_plot = 10  # Number of responses you want to plot
+    fig, axes = plt.subplots(1, num_responses_to_plot, figsize=(15, 5))
+    for i in range(num_responses_to_plot):
+        ax = axes[i]
+        ax.imshow(response_data[i])
+        ax.set_title(f"Response {i + 1}")
+        ax.axis('off')  # Hide the axis
+    plt.colorbar(axes[0].images[0], ax=axes, orientation='vertical', fraction=.1)
+    plt.suptitle("Original Responses")
+    plt.savefig("original_responses.png")
+    # plt.show()
+    # plt.imshow(images[0])
+    # plt.show()
     print(len(responses_images), images.shape)
     # Remove None values
-    print(images_responses[0][0].shape, images_responses[0][1].shape)
+    # print(images_responses[0][0].shape, images_responses[0][1].shape)
     # for counter, tuple in enumerate(images_respones):
     #     if tuple[0] is None:
     #         # print(tuple[0].shape, tuple[1].shape)
@@ -235,6 +221,7 @@ def match_pictures_with_response(stims_param_name="stimparams.dict", roi_data_na
     return images_responses, images, responses_images
 
 # images_responses, images, responses = match_pictures_with_response()
+# images_responses, images, responses = match_pictures_with_response(stims_param_name="F0255/tseries_12/stimparams.dict",roi_data_name="F0255/1_roi_morphed.npy", response_data_name="F0255/avg_responses_12_13_14_15_F0255.npy")
 import pickle as pk
 def apply_pca(data, n_components, response_data=None, mask=None, pca_vector=None):
     """
@@ -264,7 +251,7 @@ def apply_pca(data, n_components, response_data=None, mask=None, pca_vector=None
         single_reconstructed_response = np.zeros(mask.shape)
         single_reconstructed_response[mask] = single_reconstructed.flatten()
         single_reconstructed_response[np.logical_not(mask)] = np.nan
-        plt.imshow(single_reconstructed_response, cmap='gray')
+        plt.imshow(single_reconstructed_response)
         plt.title("Reconstructed Single Response from PCA Vector")
         plt.colorbar()
         plt.show()
@@ -274,9 +261,16 @@ def apply_pca(data, n_components, response_data=None, mask=None, pca_vector=None
         reshaped_responses[:, mask.flatten()] = reconstructed_data
         reconstructed_responses = reshaped_responses.reshape(147, 270, 320)
         reconstructed_responses[:, np.logical_not(mask)] = np.nan
-        plt.imshow(reconstructed_responses[10], cmap='gray')
-        plt.colorbar()
-        plt.title("Reconstructed Response After PCA")
+        num_responses_to_plot = 10  # Number of responses you want to plot
+        fig, axes = plt.subplots(1, num_responses_to_plot, figsize=(15, 5))
+        for i in range(num_responses_to_plot):
+            ax = axes[i]
+            ax.imshow(reconstructed_responses[i])
+            ax.set_title(f"Response {i + 1}")
+            ax.axis('off')  # Hide the axis
+        plt.colorbar(axes[0].images[0], ax=axes, orientation='vertical', fraction=.1)
+        plt.suptitle("Reconstructed Responses After PCA")
+        plt.savefig("reconstructed_responses.png")
         plt.show()
         pk.dump(pca, open("pca_responses.pkl", "wb"))
         pk.dump(scaler, open("scaler_responses.pkl", "wb"))
@@ -291,26 +285,48 @@ def apply_pca(data, n_components, response_data=None, mask=None, pca_vector=None
     return transformed_data
 
 # only select mask area:
-# roi_mask = np.load("1_roi_morphed.npy")
+# roi_mask = np.load("F0255/1_roi_morphed.npy") # !!Select the correct mask!!
 # responses = np.array(responses).reshape(responses.shape[0], -1)[:, roi_mask.flatten()]
 # print(responses.shape)
-# response_data_pca = apply_pca(data=responses, n_components=15, response_data=True, mask=roi_mask, pca_vector=None)
-# response_data_pca = apply_pca(data=responses, n_components=15, response_data=True, mask=roi_mask, pca_vector=response_data_pca[10])
-# np.save("responses_no_normalize_pca.npy", response_data_pca)
+# response_data_pca = apply_pca(data=responses, n_components=25, response_data=True, mask=roi_mask, pca_vector=None)
+# # response_data_pca = apply_pca(data=responses, n_components=50, response_data=True, mask=roi_mask, pca_vector=response_data_pca[10])
+# np.save("responses_F0255_25_pca.npy", response_data_pca)
 # print(images.shape)
 # images = images.reshape(images.shape[0], 1920*2560)
-# images_pca = apply_pca(data=images, n_components=130, response_data=False)
-# np.save("images_pca.npy", images_pca)
+# images_pca = apply_pca(data=images, n_components=147, response_data=False)
+# np.save("images_F0255_147_pca.npy", images_pca)
 # 95 mit 102 aber kann das bild nicht mehr erkennen
 # 147 noch 100% variance
 
 import torch
 import numpy as np
 import torch.nn as nn
+
+
+def calculate_r_squared_images(images1, images2):
+    r_squared_values = []
+
+    for i in range(images1.shape[0]):
+        # Flatten each pair of images
+        actual = images1[i].flatten()
+        predicted = images2[i].flatten()
+
+        # Calculate mean of the actual values
+        mean_actual = np.mean(actual)
+
+        # Calculate SS_total and SS_residual
+        ss_total = np.sum((actual - mean_actual) ** 2)
+        ss_residual = np.sum((actual - predicted) ** 2)
+
+        # Calculate R^2
+        r_squared = 1 - (ss_residual / ss_total)
+        r_squared_values.append(r_squared)
+
+    return r_squared_values
 def test_model(model_name, input_image, true_output, pca_name_response, scaler_name_responses, mask):
     pca_reloaded_responses = pk.load(open(pca_name_response, 'rb'))
     scaler_reloaded_responses = pk.load(open(scaler_name_responses, 'rb'))
-    model = PopulationCNN(input_size=130, output_size=15)
+    model = PopulationCNN(input_size=147, output_size=25) # TODO make dynamic
     model.to("cpu")
     model.load_state_dict(torch.load(model_name, weights_only=True))
     model.eval()
@@ -322,43 +338,105 @@ def test_model(model_name, input_image, true_output, pca_name_response, scaler_n
     # print(f"{input_image.shape}, input_shape")
     with torch.no_grad():
         output_image = model(input_image)
-    # print(f"{output_image.shape}, output_shape") # should be 1, 147
-    true_output = torch.tensor(true_output.reshape(1, 15)) # second shape is number of pca components
-    # print(f"{true_output.shape}, true output shape")  # should be 1, 147
+    # print(f"{output_image.shape}, output_shape") # should be 1, 147 (pca components image input)
+    true_output = torch.tensor(true_output.reshape(1, 25)) # second shape is number of pca components of response
+    # print(f"{true_output.shape}, true output shape")  # should be 1, 147 (pca components image input)
     loss = nn.MSELoss()
-    print(true_output[0])
-    print(output_image[0])
-    print(f"loss {loss(output_image, true_output)}")
+    # r_2 = calculate_r_squared_images(true_output, output_image)
+    # print("R^2 vector:", r_2)
+    # print(true_output[0])
+    # print(output_image[0])
+    # print(f"loss {loss(output_image, true_output)}")
     single_reconstructed = pca_reloaded_responses.inverse_transform(output_image.reshape(1, -1))
     single_reconstructed = scaler_reloaded_responses.inverse_transform(single_reconstructed)
     single_reconstructed_response = np.zeros(mask.shape)
     single_reconstructed_response[mask] = single_reconstructed.flatten()
     single_reconstructed_response[np.logical_not(mask)] = np.nan
     plt.imshow(single_reconstructed_response)
-    plt.title("Model Output Reconstructed from PCA Vector")
+    plt.title(f"Model Output, loss: {torch.round(loss(output_image, true_output))}")
     plt.colorbar()
-    plt.show()
+    # plt.show()
     single_reconstructed2 = pca_reloaded_responses.inverse_transform(true_output.reshape(1, -1))
     single_reconstructed2 = scaler_reloaded_responses.inverse_transform(single_reconstructed2)
     single_reconstructed_response2 = np.zeros(mask.shape)
     single_reconstructed_response2[mask] = single_reconstructed2.flatten()
     single_reconstructed_response2[np.logical_not(mask)] = np.nan
     plt.imshow(single_reconstructed_response2)
-    plt.title("True Output Reconstructed from PCA Vector")
+    plt.title("True Output")
     plt.colorbar()
-    plt.show()
+    # plt.show()
+    r_2 = calculate_r_squared_images(single_reconstructed2, single_reconstructed)
+    if r_2[0] < 0.5:
+        print("R^2 images:", r_2)
 
 
 
     return output_image
 from model import PopulationCNN
-responses_pca = np.load("responses_no_normalize_pca.npy")
-images_pca = np.load("images_pca.npy")
+responses_pca = np.load("responses_F0255_25_pca.npy")
+images_pca = np.load("images_F0255_147_pca.npy")
 
-# TODO split in test and train
 # TODO clean up code
-#
-
 
 # test_model("trained_model_weights_500.pth", images_pca[10], responses_pca[10], "pca_responses.pkl", "scaler_responses.pkl", np.load("1_roi_morphed.npy"))
-test_model("trained_model_weights_250.pth", images_pca[10], responses_pca[10], "pca_responses.pkl", "scaler_responses.pkl", np.load("1_roi_morphed.npy"))
+for i in range(147):
+    test_model("trained_model_weights_F0255_100.pth", images_pca[i], responses_pca[i],
+               "pca_responses.pkl", "scaler_responses.pkl", np.load("F0255/1_roi_morphed.npy"))
+# test_model("trained_model_weights_F0255_100.pth", images_pca[9], responses_pca[9],
+#            "pca_responses.pkl", "scaler_responses.pkl", np.load("F0255/1_roi_morphed.npy"))
+# test_model("trained_model_weights_F0255_100.pth", images_pca[51], responses_pca[51],
+#            "pca_responses.pkl", "scaler_responses.pkl", np.load("F0255/1_roi_morphed.npy"))
+# test_model("trained_model_weights_F0255_100.pth", images_pca[125], responses_pca[125],
+#             "pca_responses.pkl", "scaler_responses.pkl", np.load("F0255/1_roi_morphed.npy"))
+
+from scipy.stats import pearsonr
+def calculate_image_correlations(images1, images2):
+    correlations = []
+
+    for i in range(images1.shape[0]):
+        # Flatten each pair of images
+        img1_flat = images1[i].flatten()
+        img2_flat = images2[i].flatten()
+
+        # Remove NaN and infinite values
+        valid_mask = np.isfinite(img1_flat) & np.isfinite(img2_flat)
+        img1_flat = img1_flat[valid_mask]
+        img2_flat = img2_flat[valid_mask]
+
+        # Calculate Pearson correlation coefficient
+        if len(img1_flat) > 0 and len(img2_flat) > 0:
+            corr, _ = pearsonr(img1_flat, img2_flat)
+        else:
+            corr = np.nan  # If no valid data points, set correlation to NaN
+        correlations.append(corr)
+    print(np.average(correlations))
+    return correlations
+def load_all_responses_and_avg():
+    string_directory = "F0255/tseries_"
+    strings_subdirectories = ["12", "13", "14", "15"]
+    responses_all_trials = []
+    for i in strings_subdirectories:
+        os.listdir(string_directory + i)
+        t_series = os.listdir(string_directory + i)
+        responses = np.load(string_directory + i + '/' + t_series[0]).squeeze()
+        print(responses.shape, "responses shape")
+        plt.imshow(responses[20])
+        plt.title("Single Response" + i)
+        plt.colorbar()
+        plt.show()
+        responses_all_trials.append(responses)
+    # for i, _ in enumerate(responses_all_trials):
+    #     if i+1 < len(responses_all_trials):
+    #         calculate_image_correlations(responses_all_trials[i], responses_all_trials[i+1])
+    #     else:
+    #         calculate_image_correlations(responses_all_trials[i], responses_all_trials[0])
+    responses_all_trials = np.array(responses_all_trials)
+    avg_response = np.mean(responses_all_trials, axis=0)
+    print(f"Average Response Shape: {avg_response.shape}")
+    plt.imshow(avg_response[20])
+    plt.title("Average Response")
+    plt.colorbar()
+    plt.show()
+    np.save("F0255/avg_responses_12_13_14_15_F0255.npy", avg_response)
+    # print(responses1)
+# load_all_responses_and_avg() # average all responses over trials

@@ -138,41 +138,66 @@ def predict_image(model, input_image, true_output=None):
     return output_image
 
 # Main script
+from sklearn.model_selection import train_test_split
+class EarlyStopping:
+    def __init__(self, patience=5, min_delta=0):
+        self.patience = patience
+        self.min_delta = min_delta
+        self.counter = 0
+        self.best_loss = None
+        self.early_stop = False
+
+    def __call__(self, val_loss):
+        if self.best_loss is None:
+            self.best_loss = val_loss
+        elif val_loss > self.best_loss - self.min_delta:
+            self.counter += 1
+            if self.counter >= self.patience:
+                self.early_stop = True
+        else:
+            self.best_loss = val_loss
+            self.counter = 0
 def train_save_model(images, responses):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f'Using device: {device}')
 
-    # Set random seed for reproducibility
     torch.manual_seed(42)
 
-    # Convert images and responses to float32 and reshape images to have 1 channel
     images = images.astype(np.float32).reshape(-1, 1, images.shape[1])
     responses = responses.astype(np.float32)
+    indexes = np.arange(images.shape[0])
 
-    # Create the dataset and dataloader
-    dataset = CustomImageDataset(num_images=images.shape[0], images=images, targets=responses)
-    dataloader = DataLoader(dataset, batch_size=1, shuffle=True, num_workers=0, pin_memory=True)
-    print(images.shape[2], responses.shape[1])
-    # Initialize the model
-    model = PopulationCNN(input_size=images.shape[2], output_size=responses.shape[1])
+    images_train, images_test, responses_train, responses_test, indexes_train, indexes_test = (
+        train_test_split(images, responses, indexes, test_size=0.1, random_state=42))
+    print("Training indexes:", indexes_train)
+    print("Test indexes:", indexes_test)
+
+    train_dataset = CustomImageDataset(num_images=images_train.shape[0], images=images_train, targets=responses_train)
+    test_dataset = CustomImageDataset(num_images=images_test.shape[0], images=images_test, targets=responses_test)
+    train_dataloader = DataLoader(train_dataset, batch_size=1, shuffle=True, num_workers=0, pin_memory=True)
+    test_dataloader = DataLoader(test_dataset, batch_size=1, shuffle=False, num_workers=0, pin_memory=True)
+
+    print(images_train.shape[2], responses_train.shape[1])
+
+    model = PopulationCNN(input_size=images_train.shape[2], output_size=responses_train.shape[1])
     model.to(device)
 
-    # Define loss function and optimizer
     criterion = nn.MSELoss()
-    optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
+    optimizer = torch.optim.Adam(model.parameters(), lr=1e-3, weight_decay=1e-5)
 
-    # Mixed Precision Training (if applicable)
     scaler = torch.cuda.amp.GradScaler()
 
-    # Train the model
-    num_epochs = 250
+    # early_stopping = EarlyStopping(patience=100, min_delta=0.001)
+
+    num_epochs = 100
+    train_losses = []
+    val_losses = []
     for epoch in range(num_epochs):
         epoch_loss = 0.0
-        progress_bar = tqdm(dataloader, desc=f"Epoch {epoch+1}/{num_epochs}")
+        progress_bar = tqdm(train_dataloader, desc=f"Epoch {epoch+1}/{num_epochs}")
         for batch_idx, (inputs, targets) in enumerate(progress_bar):
             inputs = inputs.to(device)
             targets = targets.to(device)
-            # print(inputs.shape)
             optimizer.zero_grad()
             outputs = model(inputs)
             loss = criterion(outputs, targets)
@@ -183,13 +208,41 @@ def train_save_model(images, responses):
             epoch_loss += loss.item()
             progress_bar.set_postfix(loss=loss.item())
 
-        average_loss = epoch_loss / len(dataloader)
+        average_loss = epoch_loss / len(train_dataloader)
+        train_losses.append(average_loss)
         print(f"Epoch [{epoch+1}/{num_epochs}], Loss: {average_loss:.4f}")
-        # Make a prediction after training
-    print("Prediction after training:")
-    predict_image(model, images[0], targets[0])
-    torch.save(model.state_dict(), 'trained_model_weights_' + str(num_epochs) + '.pth')
-# images = np.load("images_pca.npy")
-# responses = np.load("responses_no_normalize_pca.npy")
+
+        model.eval()
+        val_loss = 0.0
+        with torch.no_grad():
+            for inputs, targets in test_dataloader:
+                inputs = inputs.to(device)
+                targets = targets.to(device)
+                outputs = model(inputs)
+                loss = criterion(outputs, targets)
+                val_loss += loss.item()
+        val_loss /= len(test_dataloader)
+        val_losses.append(val_loss)
+        print(f"Validation Loss: {val_loss:.4f}")
+
+        # early_stopping(val_loss)
+        # if early_stopping.early_stop:
+        #     print("Early stopping")
+        #     break
+    plt.figure(figsize=(10, 5))
+    plt.plot(train_losses, label='Training Loss')
+    plt.plot(val_losses, label='Validation Loss')
+    plt.xlabel('Epoch')
+    plt.ylabel('Loss')
+    plt.title('Training and Validation Loss per Epoch')
+    plt.legend()
+    plt.savefig('loss_plot_' + str(num_epochs) + '.png')
+    plt.show()
+
+    torch.save(model.state_dict(), 'trained_model_weights_F0255_' + str(num_epochs) + '.pth')
+    # print("Prediction after training:")
+    # predict_image(model, images_test[0], responses_test[0])
+# images = np.load("images_F0255_147_pca.npy")
+# responses = np.load("responses_F0255_25_pca.npy")
 # print(f"shapes: {images.shape}, {responses.shape}")
 # train_save_model(images, responses)
