@@ -157,7 +157,7 @@ class EarlyStopping:
         else:
             self.best_loss = val_loss
             self.counter = 0
-def train_save_model(images, responses):
+def train_save_model(images, responses, num_epochs, learning_rate, model_filepath, plot_filepath, model=None):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f'Using device: {device}')
 
@@ -178,18 +178,18 @@ def train_save_model(images, responses):
     test_dataloader = DataLoader(test_dataset, batch_size=1, shuffle=False, num_workers=0, pin_memory=True)
 
     print(images_train.shape[2], responses_train.shape[1])
-
-    model = PopulationCNN(input_size=images_train.shape[2], output_size=responses_train.shape[1])
+    if model is None:
+        model = PopulationCNN(input_size=images_train.shape[2], output_size=responses_train.shape[1])
     model.to(device)
 
     criterion = nn.MSELoss()
-    optimizer = torch.optim.Adam(model.parameters(), lr=1e-3, weight_decay=1e-5)
+
+    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, weight_decay=1e-5)
 
     scaler = torch.cuda.amp.GradScaler()
 
     # early_stopping = EarlyStopping(patience=100, min_delta=0.001)
 
-    num_epochs = 100
     train_losses = []
     val_losses = []
     for epoch in range(num_epochs):
@@ -236,10 +236,10 @@ def train_save_model(images, responses):
     plt.ylabel('Loss')
     plt.title('Training and Validation Loss per Epoch')
     plt.legend()
-    plt.savefig('loss_plot_' + str(num_epochs) + '.png')
+    plt.savefig(plot_filepath + '.png')
     plt.show()
 
-    torch.save(model.state_dict(), 'trained_model_weights_F0255_' + str(num_epochs) + '.pth')
+    torch.save(model.state_dict(), model_filepath + '.pth')
     # print("Prediction after training:")
     # predict_image(model, images_test[0], responses_test[0])
 # images = np.load("images_F0255_147_pca.npy")

@@ -4,7 +4,7 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="f78c631b-bdfd-485a-bf23-1f19675f09ad" name="Changes" comment="reverse PCA added to data loading and model, updated model to take correct input sizes">
+    <list default="true" id="f78c631b-bdfd-485a-bf23-1f19675f09ad" name="Changes" comment="split in test and train, average responses over trials, r^2">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/data_loading.py" beforeDir="false" afterPath="$PROJECT_DIR$/data_loading.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/model.py" beforeDir="false" afterPath="$PROJECT_DIR$/model.py" afterDir="false" />
@@ -45,25 +45,27 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "Python.data_loading.executor": "Run",
-    "Python.model.executor": "Run",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "SHARE_PROJECT_CONFIGURATION_FILES": "true",
-    "git-widget-placeholder": "main",
-    "last_opened_file_path": "/Users/silas/PycharmProjects/inceptionLoopProject",
-    "node.js.detected.package.eslint": "true",
-    "node.js.detected.package.tslint": "true",
-    "node.js.selected.package.eslint": "(autodetect)",
-    "node.js.selected.package.tslint": "(autodetect)",
-    "nodejs_package_manager_path": "npm",
-    "settings.editor.selected.configurable": "vcs.Git",
-    "vue.rearranger.settings.migration": "true"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;Python.data_loading.executor&quot;: &quot;Run&quot;,
+    &quot;Python.model.executor&quot;: &quot;Run&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;SHARE_PROJECT_CONFIGURATION_FILES&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
+    &quot;last_opened_file_path&quot;: &quot;/Users/silas/PycharmProjects/inceptionLoopProject/separate_trials&quot;,
+    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
+    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
+    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
+    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
+    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;vcs.Git&quot;,
+    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
   }
-}]]></component>
+}</component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/separate_trials" />
+      <recent name="$PROJECT_DIR$/one_pc_responses" />
       <recent name="$PROJECT_DIR$" />
       <recent name="C:\Users\silas\PycharmProjects\inceptionLoopProject\Images" />
       <recent name="$PROJECT_DIR$/Max Code" />
@@ -151,7 +153,8 @@
       <workItem from="1729959232093" duration="139000" />
       <workItem from="1730296108313" duration="6003000" />
       <workItem from="1730302214782" duration="12188000" />
-      <workItem from="1730364121621" duration="20453000" />
+      <workItem from="1730364121621" duration="20516000" />
+      <workItem from="1730969407300" duration="19089000" />
     </task>
     <task id="LOCAL-00001" summary="reverse PCA added to data loading and model, updated model to take correct input sizes">
       <option name="closed" value="true" />
@@ -161,7 +164,15 @@
       <option name="project" value="LOCAL" />
       <updated>1730317205382</updated>
     </task>
-    <option name="localTasksCounter" value="2" />
+    <task id="LOCAL-00002" summary="split in test and train, average responses over trials, r^2">
+      <option name="closed" value="true" />
+      <created>1730392753772</created>
+      <option name="number" value="00002" />
+      <option name="presentableId" value="LOCAL-00002" />
+      <option name="project" value="LOCAL" />
+      <updated>1730392753772</updated>
+    </task>
+    <option name="localTasksCounter" value="3" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -182,10 +193,11 @@
     <MESSAGE value="loading data and initial model" />
     <MESSAGE value="small changes" />
     <MESSAGE value="reverse PCA added to data loading and model, updated model to take correct input sizes" />
-    <option name="LAST_COMMIT_MESSAGE" value="reverse PCA added to data loading and model, updated model to take correct input sizes" />
+    <MESSAGE value="split in test and train, average responses over trials, r^2" />
+    <option name="LAST_COMMIT_MESSAGE" value="split in test and train, average responses over trials, r^2" />
   </component>
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
-    <SUITE FILE_PATH="coverage/inceptionLoopProject$data_loading.coverage" NAME="data_loading Coverage Results" MODIFIED="1730392340768" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/inceptionLoopProject$data_loading.coverage" NAME="data_loading Coverage Results" MODIFIED="1730991963877" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/inceptionLoopProject$model.coverage" NAME="model Coverage Results" MODIFIED="1730390033621" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
   </component>
 </project>
