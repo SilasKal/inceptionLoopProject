@@ -262,9 +262,11 @@ def apply_pca(data, n_components, response_data=None, mask=None, pca_vector=None
         plt.show()
     if response_data:
         # print(reconstructed_data.shape)
-        reshaped_responses = np.zeros((147, 270 * 320))
+        # reshaped_responses = np.zeros((147, 270 * 320))
+        reshaped_responses = np.zeros((588, 270 * 320))
         reshaped_responses[:, mask.flatten()] = reconstructed_data
-        reconstructed_responses = reshaped_responses.reshape(147, 270, 320)
+        # reconstructed_responses = reshaped_responses.reshape(147, 270, 320)
+        reconstructed_responses = reshaped_responses.reshape(588, 270, 320)
         reconstructed_responses[:, np.logical_not(mask)] = np.nan
         num_responses_to_plot = 10  # Number of responses you want to plot
         fig, axes = plt.subplots(1, num_responses_to_plot, figsize=(15, 5))
@@ -281,6 +283,7 @@ def apply_pca(data, n_components, response_data=None, mask=None, pca_vector=None
         pk.dump(scaler, open(scaler_filepath, "wb"))
     else:
         reconstructed_images = reconstructed_data.reshape(147, 1920, 2560)
+        # reconstructed_images = reconstructed_data.reshape(588, 1920, 2560)
         print(reconstructed_images.shape)
         plt.imshow(reconstructed_images[0])
         plt.title("Reconstructed Image(input) After PCA")
@@ -362,9 +365,9 @@ def test_model(model_name, input_image, true_output, pca_name_response, scaler_n
     single_reconstructed_response = np.zeros(mask.shape)
     single_reconstructed_response[mask] = single_reconstructed.flatten()
     single_reconstructed_response[np.logical_not(mask)] = np.nan
-    plt.imshow(single_reconstructed_response)
-    plt.title(f"Model Output, loss: {torch.round(loss(output_image, true_output))}")
-    plt.colorbar()
+    # plt.imshow(single_reconstructed_response)
+    # plt.title(f"Model Output, loss: {torch.round(loss(output_image, true_output))}")
+    # plt.colorbar()
     # plt.savefig("Model Output " + index)
     # plt.show()
     single_reconstructed2 = pca_reloaded_responses.inverse_transform(true_output.reshape(1, -1))
@@ -372,9 +375,9 @@ def test_model(model_name, input_image, true_output, pca_name_response, scaler_n
     single_reconstructed_response2 = np.zeros(mask.shape)
     single_reconstructed_response2[mask] = single_reconstructed2.flatten()
     single_reconstructed_response2[np.logical_not(mask)] = np.nan
-    plt.imshow(single_reconstructed_response2)
-    plt.title("True Output")
-    plt.colorbar()
+    # plt.imshow(single_reconstructed_response2)
+    # plt.title("True Output")
+    # plt.colorbar()
     # plt.savefig("True Output " + index)
     # plt.show()
     r_2 = calculate_r_squared_images(single_reconstructed2, single_reconstructed)
@@ -388,7 +391,7 @@ def test_model(model_name, input_image, true_output, pca_name_response, scaler_n
     r_squared = 1 - (ss_res / ss_tot)
     print("R^2 images:", r_2[0],"R^2 pca vectors:", r_squared, "loss:", loss_test_image)
 
-    return output_image, loss_test_image,r_2[0], r_squared
+    return output_image, true_output, loss_test_image,r_2[0], r_squared
 
 
 from model import PopulationCNN
@@ -467,7 +470,7 @@ def load_all_responses_and_avg():
 # load_all_responses_and_avg() # average all responses over trials
 
 
-from model import train_save_model
+from model import train_save_model, train_save_model_cross
 
 
 def pipeline(stims_param_filepath, roi_data_filepath, response_data_filepath, run_name, n_components_responses,
@@ -475,44 +478,75 @@ def pipeline(stims_param_filepath, roi_data_filepath, response_data_filepath, ru
     directory_path = run_name
     os.makedirs(directory_path, exist_ok=True)
     # match images with responses and apply filter + high low normalize
-    _, images, responses = match_pictures_with_response(stims_param_filepath, roi_data_filepath, response_data_filepath)
-    np.save(run_name + "/images.npy", images)
-    np.save(run_name + "/responses.npy", responses)
+    # _, images, responses = match_pictures_with_response(stims_param_filepath, roi_data_filepath, response_data_filepath)
+    _, images_12, responses_12 = match_pictures_with_response("F0255/tseries_12/stimparams.dict",
+                                                        "F0255/1_roi_morphed.npy",
+                                                        "F0255/tseries_12/response_array_1s_interval.npy")
+    _, images_13, responses_13 = match_pictures_with_response("F0255/tseries_13/stimparams.dict",
+                                                        "F0255/1_roi_morphed.npy",
+                                                        "F0255/tseries_13/response_array_1s_interval.npy")
+    _, images_14, responses_14 = match_pictures_with_response("F0255/tseries_14/stimparams.dict",
+                                                        "F0255/1_roi_morphed.npy",
+                                                        "F0255/tseries_14/response_array_1s_interval.npy")
+    _, images_15, responses_15 = match_pictures_with_response("F0255/tseries_15/stimparams.dict",
+                                                        "F0255/1_roi_morphed.npy",
+                                                        "F0255/tseries_15/response_array_1s_interval.npy")
+    # images = np.concatenate((images_12, images_13, images_14, images_15), axis=0)
+    responses = np.concatenate((responses_12, responses_13, responses_14, responses_15), axis=0)
+    # np.save(run_name + "/images.npy", images)
+    # np.save(run_name + "/responses.npy", responses)
     print(15 * "-" + "Matching Images to Responses completed" + 15 * "-")
     # apply pca to images and responses
     roi_mask = np.load(roi_data_filepath)
     responses = np.array(responses).reshape(responses.shape[0], -1)[:, roi_mask.flatten()]
+    responses_12 = np.array(responses_12).reshape(responses_12.shape[0], -1)[:, roi_mask.flatten()]
+    responses_13 = np.array(responses_13).reshape(responses_13.shape[0], -1)[:, roi_mask.flatten()]
+    responses_14 = np.array(responses_14).reshape(responses_14.shape[0], -1)[:, roi_mask.flatten()]
+    responses_15 = np.array(responses_15).reshape(responses_15.shape[0], -1)[:, roi_mask.flatten()]
+    responses = np.concatenate((responses_12, responses_13, responses_14, responses_15), axis=0)
     responses_pca = apply_pca(responses, n_components_responses, True, roi_mask, None,
                               run_name + "/" + "pca_responses_" + str(n_components_responses) + ".pkl",
                               run_name + "/scaler_responses.pkl")
     # which test images do I want to be shown here?
     np.save(run_name + "/responses_pca_vectors_" + str(n_components_responses) + ".npy", responses_pca)
+    responses_pca = np.load(run_name + "/responses_pca_vectors_" + str(n_components_responses) + ".npy")
     print(15 * "-" + "Applied PCA to responses" + 15 * "-")
     # ADD option to load existing pca vectors with pca npy
     # images = images.reshape(images.shape[0], 1920 * 2560)
-    # images_pca = apply_pca(images, n_components_images, False, roi_mask, None, run_name + "/" + "pca_images_"
+    # images_12 = images_12.reshape(images_12.shape[0], 1920 * 2560)
+    # images_pca = apply_pca(images_12, n_components_images, False, roi_mask, None, run_name + "/" + "pca_images_"
     #                        + str(n_components_images) + ".pkl", run_name + "/scaler_images.pkl")
-    # ADD option to load existing pca vectors with pca npy
+    # # images_pca = np.load(run_name + "/images_pca_vectors_" + str(n_components_images) + ".npy")
+    # print("images_shape one trial", images_pca.shape)
+    # images_pca = np.concatenate((images_pca, images_pca, images_pca, images_pca), axis=0)
+    # print("images_pca all images", images_pca.shape)
+    # # ADD option to load existing pca vectors with pca npy
     # np.save(run_name + "/images_pca_vectors_" + str(n_components_images) + ".npy", images_pca)
-    images_pca = np.load(run_name + "/images_pca_vectors_" + str(n_components_images) + ".npy")
+    images_pca = np.load(run_name + "/images_pca_vectors_" + str(n_components_images) + ".npy") # load existing pca vectors
     print(15 * "-" + "Applied PCA to images" + 15 * "-")
     # train model
-    train_save_model(images_pca, responses_pca, num_epochs, learning_rate,
+    # train_save_model(images_pca, responses_pca, num_epochs, learning_rate,
+    #                  run_name + "/model" + "_" + str(num_epochs) + "_" +
+    #                  str(learning_rate), run_name + "/model_plot", None)
+    train_save_model_cross(images_pca, responses_pca, num_epochs, learning_rate,
                      run_name + "/model" + "_" + str(num_epochs) + "_" +
                      str(learning_rate), run_name + "/model_plot", None)
     print(15 * "-" + "Trained and saved the model" + 15 * "-")
-    for i in test_indices:
-        print(f"indice {i}")
-        test_model(run_name + "/model" + "_" + str(num_epochs) + "_" + str(learning_rate) + ".pth", images_pca[i], responses_pca[i],
-               run_name + "/" + "pca_responses_" + str(n_components_responses) + ".pkl", run_name + "/scaler_responses.pkl",
-               np.load(roi_data_filepath), n_components_responses, n_components_images)
+    # for i in test_indices:
+    #     print(f"indice {i}")
+    #     test_model(run_name + "/model" + "_" + str(num_epochs) + "_" + str(learning_rate) + ".pth", images_pca[i], responses_pca[i],
+    #            run_name + "/" + "pca_responses_" + str(n_components_responses) + ".pkl", run_name + "/scaler_responses.pkl",
+    #            np.load(roi_data_filepath), n_components_responses, n_components_images, i)
     print(15 * "-" + "Tested the model" + 15 * "-")
 
-
+# one trial
 # pipeline("F0255/tseries_12/stimparams.dict", "F0255/1_roi_morphed.npy",
 #          "F0255/avg_responses_12_13_14_15_F0255.npy", "one_pc_responses", 1,
 #          147, 1e-3, 50,  [125,  51, 138,  19, 104,  12,  76,  31,  81,   9 , 26 , 96, 143 , 67 ,134])
-
+# all trials
+pipeline("F0255/tseries_12/stimparams.dict", "F0255/1_roi_morphed.npy",
+         "F0255/avg_responses_12_13_14_15_F0255.npy", "all_trials", 1,
+         147, 1e-3, 25,  list(range(147)))
 
 def separate_trials(stims_param_filepath, roi_data_filepath, response_data_filepath, run_name, n_components_responses,
              n_components_images, learning_rate, num_epochs, test_indices):
@@ -553,7 +587,7 @@ def separate_trials(stims_param_filepath, roi_data_filepath, response_data_filep
     for i in test_indices:
         print(f"indice {i}")
         losses_test = []
-        _, loss, r_2, r_squared = test_model(run_name + "/model" + "_" + str(num_epochs) + "_" + str(learning_rate) + ".pth", images_pca[i],
+        _, _, loss, r_2, r_squared = test_model(run_name + "/model" + "_" + str(num_epochs) + "_" + str(learning_rate) + ".pth", images_pca[i],
                    responses_pca[i],
                    run_name + "/" + "pca_responses_" + str(n_components_responses) + ".pkl",
                    run_name + "/scaler_responses.pkl",
@@ -562,25 +596,49 @@ def separate_trials(stims_param_filepath, roi_data_filepath, response_data_filep
     print("Average loss:", np.average(losses_test))
     print(15 * "-" + "Tested the model" + 15 * "-")
 
-test_indices = [125,  51, 138,  19, 104,  12,  76,  31,  81,   9 , 26 , 96, 143 , 67 ,134]
-train_indices = [0, 1, 2, 3, 4, 5, 6, 7, 8, 10, 11, 13, 14, 15, 16, 17, 18, 20, 21, 22, 23, 24, 25, 27, 28, 29, 30, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 68, 69, 70, 71, 72, 73, 74, 75, 77, 78, 79, 80, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 97, 98, 99, 100, 101, 102, 103, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 126, 127, 128, 129, 130, 131, 132, 133, 135, 136, 137, 139, 140, 141, 142, 144, 145, 146]
+# test_indices = [125,  51, 138,  19, 104,  12,  76,  31,  81,   9 , 26 , 96, 143 , 67 ,134]
+# train_indices = [0, 1, 2, 3, 4, 5, 6, 7, 8, 10, 11, 13, 14, 15, 16, 17, 18, 20, 21, 22, 23, 24, 25, 27, 28, 29, 30, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 68, 69, 70, 71, 72, 73, 74, 75, 77, 78, 79, 80, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 97, 98, 99, 100, 101, 102, 103, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 126, 127, 128, 129, 130, 131, 132, 133, 135, 136, 137, 139, 140, 141, 142, 144, 145, 146]
 # separate_trials("F0255/tseries_15/stimparams.dict", "F0255/1_roi_morphed.npy",
 #          "F0255/tseries_15/response_array_1s_interval.npy", "separate_trials", 1,
 #          147, 1e-3, 5,  test_indices)
-images_pca = np.load("separate_trials/images_pca_vectors_147.npy")
-responses_pca = np.load("separate_trials/responses_pca_vectors_1_trial_15.npy")
-losses_test = []
-counter = 0
-for i in test_indices:
-    print(f"indice {i}")
-    _, loss, r_2, r_squared = test_model("separate_trials/model_50_0.001.pth", images_pca[i],
-               responses_pca[i],
-               "separate_trials" + "/" + "pca_responses_" + str(1) + ".pkl",
-               "separate_trials" + "/scaler_responses.pkl",
-               np.load("F0255/1_roi_morphed.npy"), 1, 147, str(i))
-    losses_test.append(loss)
-print(counter)
-print(np.average(losses_test))
-print(np.min(losses_test))
-print(np.median(losses_test))
-print(np.max(losses_test))
+
+
+
+# TESTING
+# test_indices = [125,51,138,19,104,12,76,31,81,9,26,96,143,67,134,272,198,285,166,251,159,223,178,228,156,173,243,290,214,281,419,345,432,313,398,306,370,325,375,303,320,390,437,361,428,566,492,579,460,545,453,517,472,522,450,467,537,584,508,575]
+# #
+#
+# train_indices = [number for number in range(588) if number not in test_indices]
+# images_pca = np.load("all_trials/images_pca_vectors_147.npy")
+# responses_pca = np.load("all_trials/responses_pca_vectors_25.npy")
+# losses_test = []
+# r_2_list = []
+# model_outputs = []
+# true_outputs = []
+# counter = 0
+# for i in train_indices:
+#     print(f"indice {i}")
+#     curr_output, curr_ground_truth, loss, r_2, r_squared = test_model("all_trials/model_200_0.001.pth", images_pca[i],
+#                responses_pca[i],
+#                "all_trials" + "/" + "pca_responses_" + str(25) + ".pkl",
+#                "all_trials" + "/scaler_responses.pkl",
+#                np.load("F0255/1_roi_morphed.npy"), 25, 147, str(i))
+#     model_outputs.append(curr_output)
+#     true_outputs.append(curr_ground_truth)
+#     losses_test.append(loss)
+#     r_2_list.append(r_2)
+# print(np.average(r_2_list))
+# # print(counter)
+# print(np.average(losses_test))
+# print(np.min(losses_test))
+# print(np.median(losses_test))
+# print(np.max(losses_test))
+#
+# true_outputs = np.array(true_outputs)
+# model_outputs = np.array(model_outputs)
+# ss_res = np.sum((true_outputs.flatten() - model_outputs.flatten()) ** 2)
+# # Calculate the total sum of squares
+# ss_tot = np.sum((true_outputs - np.mean(true_outputs)) ** 2)
+# # Calculate R^2
+# r_squared = 1 - (ss_res / ss_tot)
+# print(r_squared, "INSGESAMT R^2")
