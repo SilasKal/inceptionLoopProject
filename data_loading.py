@@ -506,6 +506,7 @@ def get_common_pixels_within_distance(pixels_list, distance=3):
         common_pixels = new_common_pixels
     return common_pixels
 
+
 def get_pixel_with_most_variance(num_of_pixels=1):
     _, _, responses_12 = match_pictures_with_response("F0255/tseries_12/stimparams.dict", "F0255/1_roi_morphed.npy", "F0255/tseries_12/response_array_1s_interval.npy")
     _, _, responses_13 = match_pictures_with_response("F0255/tseries_13/stimparams.dict", "F0255/1_roi_morphed.npy", "F0255/tseries_13/response_array_1s_interval.npy")
@@ -582,11 +583,23 @@ def get_pixel_value(responses, pixels):
     print(values.shape)
     return values
 
+def get_pixel_value_standardized(responses, pixels):
+    values = np.array([responses[:, row, col] for row, col in pixels])
+    values = values.T
+    mean_values = np.mean(values, axis=0)
+    std_values = np.std(values, axis=0)
+    print(mean_values)
+    print(std_values)
+    standardized_values = (values - mean_values) / std_values
+    print(standardized_values.shape)
+    return standardized_values
+
 def get_pixels_all_responses(responses_all_trials, pixels):
     all_values = np.zeros((147 * 4, len(common_pixels)))
     print(f"{all_values.shape=}")
     for index, response_trial in enumerate(responses_all_trials):
-        curr_values = get_pixel_value(response_trial, pixels)
+        # curr_values = get_pixel_value(response_trial, pixels)
+        curr_values = get_pixel_value_standardized(response_trial, pixels)
         if index == 0:
             index_0 = 0
         else:
@@ -598,10 +611,10 @@ def get_pixels_all_responses(responses_all_trials, pixels):
     return all_values
 # common_pixels, responses = get_pixel_with_most_variance(num_of_pixels=225) # 101 common
 # common_pixels, responses = get_pixel_with_most_variance(num_of_pixels=100) # 1 common
-common_pixels, responses = get_pixel_with_most_variance(num_of_pixels=225)
-print(f"{len(common_pixels)=}")
-responses_pixels = get_pixels_all_responses(responses, common_pixels)
-
+# common_pixels, responses = get_pixel_with_most_variance(num_of_pixels=225) # 101 common
+# print(f"{len(common_pixels)=}")
+# responses_pixels = get_pixels_all_responses(responses, common_pixels)
+from model import optimize_image
 def pipeline_pixels(responses_pixels, images_pca, num_epochs, learning_rate, run_name):
     directory_path = run_name
     os.makedirs(directory_path, exist_ok=True)
@@ -610,11 +623,55 @@ def pipeline_pixels(responses_pixels, images_pca, num_epochs, learning_rate, run
                            run_name + "/model" + "_" + str(num_epochs) + "_" +
                            str(learning_rate), run_name + "/model_plot", None)
 
-pipeline_pixels(responses_pixels, np.load("all_trials/images_pca_vectors_147.npy"), 500, 10e-3, "pixels")
+# pipeline_pixels(responses_pixels, np.load("all_trials/images_pca_vectors_147.npy"), 5, 10e-3, "pixels")
+# pipeline_pixels(responses_pixels, np.load("all_trials/images_pca_vectors_147.npy"), 500, 10e-5, "pixels")
 # 1e-5
 
+def get_most_exciting_stimuli():
+    _, images_12, responses_12 = match_pictures_with_response("F0255/tseries_12/stimparams.dict",
+                                                              "F0255/1_roi_morphed.npy",
+                                                              "F0255/tseries_12/response_array_1s_interval.npy")
+    _, images_13, responses_13 = match_pictures_with_response("F0255/tseries_13/stimparams.dict",
+                                                              "F0255/1_roi_morphed.npy",
+                                                              "F0255/tseries_13/response_array_1s_interval.npy")
+    _, images_14, responses_14 = match_pictures_with_response("F0255/tseries_14/stimparams.dict",
+                                                              "F0255/1_roi_morphed.npy",
+                                                              "F0255/tseries_14/response_array_1s_interval.npy")
+    _, images_15, responses_15 = match_pictures_with_response("F0255/tseries_15/stimparams.dict",
+                                                              "F0255/1_roi_morphed.npy",
+                                                              "F0255/tseries_15/response_array_1s_interval.npy")
 
+    responses_list = [responses_12, responses_13, responses_14, responses_15]
+    images_list = [images_12, images_13, images_14, images_15]
+    titles = ["Trial 12", "Trial 13", "Trial 14", "Trial 15"]
 
+    plt.figure(figsize=(24, 12))
+    for i, (responses, images, title) in enumerate(zip(responses_list, images_list, titles)):
+        print(f"{title} shape:", responses.shape)
+        max_values = np.nanmax(responses, axis=(1, 2))
+        # print(f"Highest Response for each picture in {title}:", max_values)
+        print(f"Highest Response Value in {title}:", np.max(max_values), "at index", np.argmax(max_values))
+        index = np.argmax(max_values)
+        max_response_coords = np.unravel_index(np.nanargmax(responses[index]), responses[index].shape)
+
+        # Plot the response
+        plt.subplot(4, 2, 2 * i + 1)
+        plt.imshow(responses[index], interpolation='nearest')
+        plt.plot(max_response_coords[1], max_response_coords[0], 'ro')  # Plot the highest response point
+        plt.title(f"Response {title} at index {index}")
+        plt.colorbar()
+
+        # Plot the corresponding image
+        plt.subplot(4, 2, 2 * i + 2)
+        plt.imshow(images[index], cmap='gray')
+        plt.title(f"Image {title} at index {index}")
+        plt.colorbar()
+
+    plt.tight_layout()
+    plt.savefig("most_exciting_stimuli.png")
+    plt.show()
+
+get_most_exciting_stimuli()
 def pipeline(stims_param_filepath, roi_data_filepath, response_data_filepath, run_name, n_components_responses,
              n_components_images, learning_rate, num_epochs, test_indices):
     directory_path = run_name

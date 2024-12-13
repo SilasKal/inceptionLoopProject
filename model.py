@@ -328,6 +328,72 @@ class MAPELoss(nn.Module):
     def forward(self, y_pred, y_true):
         epsilon = 1e-8  # Vermeidet Division durch Null
         return torch.mean(torch.abs((y_true - y_pred) / (y_true + epsilon)))
+import pickle as pk
+def reconstruct_image_from_pca(pca_filepath, scaler_filepath, image_pca_vector):
+    print(f"{image_pca_vector.shape=}")
+    # Reconstruct the image from the PCA vector
+    pca = pk.load(open(pca_filepath, 'rb'))
+    scaler = pk.load(open(scaler_filepath, 'rb'))
+    reconstructed_data = pca.inverse_transform(image_pca_vector.reshape(1, -1))
+    reconstructed_data = scaler.inverse_transform(reconstructed_data)
+    reconstructed_images = reconstructed_data.reshape(1, 1920, 2560)
+    # reconstructed_images = reconstructed_data.reshape(588, 1920, 2560)
+    print(f"{reconstructed_images.shape=}")
+    plt.imshow(reconstructed_images[0])
+    plt.title("Reconstructed Image(input) After PCA")
+    plt.show()
+import torch
+import torch.nn.functional as F
+
+# with 5000 saw image that showed some features of the original image
+def optimize_image(model, input_size=None, output_size=None, model_filepath='', num_steps=5000, step_size=1000):
+    if model_filepath != '':
+        model = ComplexNN(input_size=input_size, output_size=output_size)
+        model.load_state_dict(torch.load(model_filepath, weights_only=True))
+    model.eval()
+
+    # Initialize the input image with random values
+    input_image = torch.randn(1, 1, input_size, requires_grad=True,
+                              device='cuda' if torch.cuda.is_available() else 'cpu')
+
+    # Store a copy of the initial input image
+    initial_input_image = input_image.clone().detach()
+    reconstruct_image_from_pca("all_trials/pca_images_147.pkl", "all_trials/scaler_images.pkl",
+                               input_image.detach().cpu().numpy().squeeze())
+
+    optimizer = torch.optim.Adam([input_image], lr=step_size)
+
+    for step in range(num_steps):
+        optimizer.zero_grad()
+
+        # Forward pass
+        output = model(input_image)
+        print(f"{output.mean()=}")
+
+        # Objective: maximize the output
+        loss = -output.mean()  # Negative value to maximize
+        print(f"{loss=}")
+        # Backward pass
+        loss.backward()
+
+        # Update the input image
+        optimizer.step()
+
+        # Check if the input image has changed
+        if not torch.equal(initial_input_image, input_image):
+            print(f"Step {step}: Input image has changed.")
+        else:
+            print(f"Step {step}: Input image has not changed.")
+        initial_input_image = input_image.clone().detach()
+
+        if step % 10 == 0:
+            print(f"Step {step}, Loss: {loss.item()}")
+
+    print(f"{input_image.detach().cpu().numpy().shape=}")
+    reconstruct_image_from_pca("all_trials/pca_images_147.pkl", "all_trials/scaler_images.pkl", input_image.detach().cpu().numpy().squeeze())
+    return input_image.detach().cpu().numpy()
+
+# optimize_image(None, 147, 101, 'pixels/model_250_0.01_cross_validation.pth', 1000, 0.01)
 def train_save_model_cross(images, responses, num_epochs, learning_rate, model_filepath, plot_filepath, model=None):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -469,6 +535,12 @@ def train_save_model_cross(images, responses, num_epochs, learning_rate, model_f
                     # print("targets", targets.detach().cpu().numpy().squeeze().shape)
                     overall_model_outputs_train.extend(outputs.detach().cpu().numpy().squeeze())
                     overall_targets_train.extend(targets.detach().cpu().numpy().squeeze())
+            overall_targets_train_np = np.array(overall_targets_train)
+            overall_model_outputs_train_np = np.array(overall_model_outputs_train)
+            ss_res = np.sum((overall_targets_train_np.flatten() - overall_model_outputs_train_np.flatten()) ** 2)
+            ss_tot = np.sum((overall_targets_train_np - np.mean(overall_targets_train_np)) ** 2)
+            r_squared = 1 - (ss_res / ss_tot)
+            print(f"Overall R^2 for training last epoch: {r_squared:.4f}")
             average_loss = epoch_loss / len(train_dataloader)
             train_losses.append(average_loss)
             print(f"Epoch [{epoch+1}/{num_epochs}], Loss: {average_loss:.4f}")
@@ -508,9 +580,9 @@ def train_save_model_cross(images, responses, num_epochs, learning_rate, model_f
         all_train_losses.append(train_losses)
         all_val_losses.append(val_losses)
         all_r_2_losses.append(r_2_losses)
-
     # print(all_val_indexes)
     # Plot the losses and R^2 scores for each fold
+    y_limit = (0, 20)  # Change this to your desired range
     plt.figure(figsize=(10, 6))
     for i in range(num_folds):
         plt.plot(all_train_losses[i], label=f'Training Loss Fold {i+1}')
@@ -519,6 +591,7 @@ def train_save_model_cross(images, responses, num_epochs, learning_rate, model_f
     plt.xlabel('Epoch')
     plt.ylabel('Loss')
     plt.title('Training Loss per Epoch')
+    # plt.ylim(y_limit)
     plt.legend()
     plt.savefig(plot_filepath + 'training_cross_validation.png')
     plt.show()
@@ -530,6 +603,7 @@ def train_save_model_cross(images, responses, num_epochs, learning_rate, model_f
     plt.xlabel('Epoch')
     plt.ylabel('Loss')
     plt.title('Validation Loss per Epoch')
+    # plt.ylim(y_limit)
     plt.legend()
     plt.savefig(plot_filepath + 'validation_cross_validation.png')
     plt.show()
@@ -559,13 +633,13 @@ def train_save_model_cross(images, responses, num_epochs, learning_rate, model_f
     plt.plot(np.array(overall_targets_val).squeeze()[:, 0], np.array(overall_model_outputs_val)[:, 0], 'o', color="blue", label="Pixel 0")
     plt.plot(np.array(overall_targets_val).squeeze()[:, 1], np.array(overall_model_outputs_val)[:, 1], 'o',
              color="red", label="Pixel 1")
-    plt.plot(np.array(overall_targets_val).squeeze()[:, 0], np.array(overall_model_outputs_val)[:, 2], 'o',
+    plt.plot(np.array(overall_targets_val).squeeze()[:, 2], np.array(overall_model_outputs_val)[:, 2], 'o',
              color="green", label="Pixel 2")
-    plt.plot(np.array(overall_targets_val).squeeze()[:, 1], np.array(overall_model_outputs_val)[:, 3], 'o',
+    plt.plot(np.array(overall_targets_val).squeeze()[:, 3], np.array(overall_model_outputs_val)[:, 3], 'o',
              color="purple", label="Pixel 3")
-    plt.plot(np.array(overall_targets_val).squeeze()[:, 0], np.array(overall_model_outputs_val)[:, 4], 'o',
+    plt.plot(np.array(overall_targets_val).squeeze()[:, 4], np.array(overall_model_outputs_val)[:, 4], 'o',
              color="yellow", label="Pixel 4")
-    plt.plot(np.array(overall_targets_val).squeeze()[:, 1], np.array(overall_model_outputs_val)[:, 5], 'o',
+    plt.plot(np.array(overall_targets_val).squeeze()[:, 5], np.array(overall_model_outputs_val)[:, 5], 'o',
              color="black", label="Pixel 5")
     plt.xlabel("True Value")
     plt.ylabel("Predicted Value")
@@ -575,7 +649,7 @@ def train_save_model_cross(images, responses, num_epochs, learning_rate, model_f
     plt.show()
     print(f"{np.array(overall_targets_train).shape=}, {np.array(overall_model_outputs_train).shape=}")
     print(f"{np.array(overall_targets_train).squeeze()[:, 0].shape=}, {np.array(overall_model_outputs_train)[:, 0].shape=}")
-    for i in range(21):
+    for i in range(11):
         plt.figure(figsize=(10, 6))
         plt.plot(np.array(overall_targets_train).squeeze()[:, i], np.array(overall_model_outputs_train)[:, i], 'o',
                  label=f"Pixel {i}")
@@ -609,6 +683,7 @@ def train_save_model_cross(images, responses, num_epochs, learning_rate, model_f
 
     torch.save(model.state_dict(), model_filepath + '_cross_validation.pth')
     # print(np.average(all_r_2_losses))
+    optimize_image(model, images_train.shape[2], responses_train.shape[1])
 
 def train_save_model(images, responses, num_epochs, learning_rate, model_filepath, plot_filepath, model=None):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -631,7 +706,7 @@ def train_save_model(images, responses, num_epochs, learning_rate, model_filepat
     train_dataset = CustomImageDataset(num_images=images_train.shape[0], images=images_train, targets=responses_train)
     test_dataset = CustomImageDataset(num_images=images_test.shape[0], images=images_test, targets=responses_test)
     train_dataloader = DataLoader(train_dataset, batch_size=10, shuffle=True, num_workers=0, pin_memory=True)
-    test_dataloader = DataLoader(test_dataset, batch_size=1, shuffle=True, num_workers=0, pin_memory=True)
+    test_dataloader = DataLoader(test_dataset, batch_size=10, shuffle=True, num_workers=0, pin_memory=True)
 
     print(images_train.shape[2], responses_train.shape[1])
     if model is None:
@@ -712,7 +787,18 @@ def train_save_model(images, responses, num_epochs, learning_rate, model_filepat
     torch.save(model.state_dict(), model_filepath + '.pth')
     # print("Prediction after training:")
     # predict_image(model, images_test[0], responses_test[0])
+
+
 # images = np.load("images_F0255_147_pca.npy")
 # responses = np.load("responses_F0255_25_pca.npy")
 # print(f"shapes: {images.shape}, {responses.shape}")
 # train_save_model(images, responses)
+
+
+
+
+
+
+# Example usage:
+# model = YourModel(input_size, output_size)
+# optimized_image = optimize_image(model, input_size)
