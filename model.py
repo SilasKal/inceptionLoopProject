@@ -164,19 +164,18 @@ class ComplexNN(nn.Module):
         x = self.fc7(x)  # Final output layer (no activation for regression tasks)
         return x
 
-
 class DeeperNN(nn.Module):
     def __init__(self, input_size, output_size):
         super(DeeperNN, self).__init__()
 
         # Define a deeper network architecture
-        self.fc1 = nn.Linear(input_size, 256)
-        self.fc2 = nn.Linear(256, 128)
-        self.fc3 = nn.Linear(128, 128)
-        self.fc4 = nn.Linear(128, 64)
-        self.fc5 = nn.Linear(64, 64)
-        self.fc6 = nn.Linear(64, 32)
-        self.fc7 = nn.Linear(32, output_size)
+        self.fc1 = nn.Linear(input_size, 512)
+        self.fc2 = nn.Linear(512, 256)
+        self.fc3 = nn.Linear(256, 128)
+        self.fc4 = nn.Linear(128, 128)
+        self.fc5 = nn.Linear(128, 128)
+        self.fc6 = nn.Linear(128, 128)
+        self.fc7 = nn.Linear(128, output_size)
 
         # Dropout layers to prevent overfitting
         self.dropout = nn.Dropout(0.3)
@@ -194,9 +193,48 @@ class DeeperNN(nn.Module):
         x = torch.relu(self.fc5(x))
         x = self.dropout(x)
         x = torch.relu(self.fc6(x))
-        x = self.fc7(x)  # Final layer without activation for regression
+        x = self.fc7(x)
         return x
 
+
+
+# class DeeperNN(nn.Module):
+#     def __init__(self, input_size, output_size):
+#         super(DeeperNN, self).__init__()
+#         self.fc1 = nn.Linear(input_size, 4096)  # Start with a large number of neurons
+#         self.fc2 = nn.Linear(4096, 2048)
+#         self.fc3 = nn.Linear(2048, 1024)
+#         self.fc4 = nn.Linear(1024, 512)
+#         self.fc5 = nn.Linear(512, 256)
+#         self.fc6 = nn.Linear(256, 128)
+#         self.fc7 = nn.Linear(128, output_size)  # Match the number of output features
+#
+#         # Add activation functions and dropout for regularization
+#         self.relu = nn.ReLU()
+#         self.dropout = nn.Dropout(p=0.3)  # Dropout to avoid overfitting
+#
+#         nn.init.xavier_uniform_(self.fc1.weight)
+#         nn.init.xavier_uniform_(self.fc2.weight)
+#         nn.init.xavier_uniform_(self.fc3.weight)
+#         nn.init.xavier_uniform_(self.fc4.weight)
+#         nn.init.xavier_uniform_(self.fc5.weight)
+#         nn.init.xavier_uniform_(self.fc6.weight)
+#         nn.init.xavier_uniform_(self.fc7.weight)
+#
+#     def forward(self, x):
+#         x = self.relu(self.fc1(x))
+#         x = self.dropout(x)
+#         x = self.relu(self.fc2(x))
+#         x = self.dropout(x)
+#         x = self.relu(self.fc3(x))
+#         x = self.dropout(x)
+#         x = self.relu(self.fc4(x))
+#         x = self.dropout(x)
+#         x = self.relu(self.fc5(x))
+#         x = self.dropout(x)
+#         x = self.relu(self.fc6(x))
+#         x = self.fc7(x)  # No activation on the output layer for regression tasks
+#         return x
 
 # Custom Dataset
 class CustomImageDataset(Dataset):
@@ -346,15 +384,20 @@ import torch
 import torch.nn.functional as F
 
 # with 5000 saw image that showed some features of the original image
-def optimize_image(model, input_size=None, output_size=None, model_filepath='', num_steps=5000, step_size=1000):
+def optimize_image(model, input_size=None, output_size=None, model_filepath='', num_steps=5000, step_size=10000):
     if model_filepath != '':
         model = ComplexNN(input_size=input_size, output_size=output_size)
+        model = DeeperNN(input_size=input_size, output_size=output_size)
         model.load_state_dict(torch.load(model_filepath, weights_only=True))
     model.eval()
 
     # Initialize the input image with random values
+    # CNN
     input_image = torch.randn(1, 1, input_size, requires_grad=True,
-                              device='cuda' if torch.cuda.is_available() else 'cpu')
+                               device='cuda' if torch.cuda.is_available() else 'cpu')
+    # NN
+    # input_image = torch.randn(1, input_size, requires_grad=True,
+    #                          device='cuda' if torch.cuda.is_available() else 'cpu')
 
     # Store a copy of the initial input image
     initial_input_image = input_image.clone().detach()
@@ -363,36 +406,64 @@ def optimize_image(model, input_size=None, output_size=None, model_filepath='', 
 
     optimizer = torch.optim.Adam([input_image], lr=step_size)
 
+    prev_loss = float('inf')
+    threshold = 1e-100  # Define your threshold here
+
     for step in range(num_steps):
         optimizer.zero_grad()
 
         # Forward pass
         output = model(input_image)
-        print(f"{output.mean()=}")
 
         # Objective: maximize the output
         loss = -output.mean()  # Negative value to maximize
-        print(f"{loss=}")
+
         # Backward pass
         loss.backward()
 
         # Update the input image
         optimizer.step()
 
-        # Check if the input image has changed
-        if not torch.equal(initial_input_image, input_image):
-            print(f"Step {step}: Input image has changed.")
-        else:
-            print(f"Step {step}: Input image has not changed.")
-        initial_input_image = input_image.clone().detach()
+        # Check if the loss is still going down
+        if abs(prev_loss - loss.item()) < threshold:
+            print(f"Stopping early at step {step}, Loss: {loss.item()}")
+            break
 
-        if step % 10 == 0:
+        prev_loss = loss.item()
+
+        if step % 10000 == 0:
             print(f"Step {step}, Loss: {loss.item()}")
+            reconstruct_image_from_pca("all_trials/pca_images_147.pkl", "all_trials/scaler_images.pkl",
+                                       input_image.detach().cpu().numpy().squeeze())
 
     print(f"{input_image.detach().cpu().numpy().shape=}")
     reconstruct_image_from_pca("all_trials/pca_images_147.pkl", "all_trials/scaler_images.pkl", input_image.detach().cpu().numpy().squeeze())
     return input_image.detach().cpu().numpy()
+def mixup_data(X, y, alpha=0.2):
+    """
+    Applies mixup to a batch of data.
+    Args:
+        X (torch.Tensor): Input data of shape (batch_size, ...).
+        y (torch.Tensor): Labels of shape (batch_size, ...).
+        alpha (float): Mixup hyperparameter controlling the interpolation strength.
 
+    Returns:
+        mixed_X (torch.Tensor): Mixed input data.
+        mixed_y (torch.Tensor): Mixed labels.
+        lambda_val (float): Mixup coefficient.
+    """
+    if alpha > 0:
+        lambda_val = np.random.beta(alpha, alpha)
+    else:
+        lambda_val = 1.0
+
+    batch_size = X.size(0)
+    index = torch.randperm(batch_size)
+
+    mixed_X = lambda_val * X + (1 - lambda_val) * X[index, :]
+    mixed_y = lambda_val * y + (1 - lambda_val) * y[index, :]
+
+    return mixed_X, mixed_y, lambda_val
 # optimize_image(None, 147, 101, 'pixels/model_250_0.01_cross_validation.pth', 1000, 0.01)
 def train_save_model_cross(images, responses, num_epochs, learning_rate, model_filepath, plot_filepath, model=None):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -400,8 +471,10 @@ def train_save_model_cross(images, responses, num_epochs, learning_rate, model_f
     print(f'Using device: {device}')
 
     # torch.manual_seed(12)
-
+    # for CNN
     images = images.astype(np.float32).reshape(-1, 1, images.shape[1])
+    # for all other models
+    # images = images.astype(np.float32)
     responses = responses.astype(np.float32)
     #scaler = StandardScaler()
     # responses = scaler.fit_transform(responses)
@@ -445,6 +518,10 @@ def train_save_model_cross(images, responses, num_epochs, learning_rate, model_f
     # throw_error()
     # for i, indices in enumerate(random_indices_variations):
     #     print(f"Variation {i + 1}: {indices}")
+    # for i in range(responses.shape[1]):
+      #   plt.hist(np.array(responses)[:, i], bins=30, alpha=0.5, label=f"Pixel {i}")
+    # plt.legend()
+    plt.show()
     all_train_losses = []
     all_val_losses = []
     all_r_2_losses = []
@@ -464,6 +541,8 @@ def train_save_model_cross(images, responses, num_epochs, learning_rate, model_f
         # print("Max, Min", max(responses), min(responses))
         images_train, images_val = images[train_index], images[val_index]
         responses_train, responses_val = responses[train_index], responses[val_index]
+        print(f"{responses_train.shape=}")
+        print(f"{responses_train[:, 0].shape=}")
         train_dataset = CustomImageDataset(num_images=images_train.shape[0], images=images_train, targets=responses_train)
         val_dataset = CustomImageDataset(num_images=images_val.shape[0], images=images_val, targets=responses_val)
         train_dataloader = DataLoader(train_dataset, batch_size=10, shuffle=True, num_workers=0, pin_memory=True)
@@ -501,14 +580,15 @@ def train_save_model_cross(images, responses, num_epochs, learning_rate, model_f
 
 
         # Deeper NN
-        # model = PopulationCNN(input_size=images_train.shape[2], output_size=responses_train.shape[1])
-        model = ComplexNN(input_size=images_train.shape[2], output_size=responses_train.shape[1])
+        model = PopulationCNN(input_size=images_train.shape[2], output_size=responses_train.shape[1])
+        # model = DeeperNN(input_size=images_train.shape[1], output_size=responses_train.shape[1])
+        # model = ComplexNN(input_size=images_train.shape[1], output_size=responses_train.shape[1])
         # model = CNNtoFCNN(input_size=images_train.shape[2], output_size=responses_train.shape[1])
         model.to(device)
 
         # criterion = nn.L1Loss()
-        # criterion = nn.MSELoss()
-        criterion = MAPELoss()
+        criterion = nn.MSELoss()
+        # criterion = MAPELoss()
         optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, weight_decay=10e-3)
         scaler = torch.cuda.amp.GradScaler()
 
@@ -523,6 +603,9 @@ def train_save_model_cross(images, responses, num_epochs, learning_rate, model_f
             for batch_idx, (inputs, targets) in enumerate(progress_bar):
                 inputs = inputs.to(device)
                 targets = targets.to(device)
+                # Apply mixup
+                inputs, targets, _ = mixup_data(inputs, targets, 0.3)
+
                 optimizer.zero_grad()
                 outputs = model(inputs)
                 loss = criterion(outputs, targets)
@@ -531,7 +614,7 @@ def train_save_model_cross(images, responses, num_epochs, learning_rate, model_f
                 scaler.update()
                 epoch_loss += loss.item()
                 progress_bar.set_postfix(loss=loss.item())
-                if epoch == num_epochs - 1 and index == 1:
+                if epoch == num_epochs - 1 and index == 0:
                     # print("targets", targets.detach().cpu().numpy().squeeze().shape)
                     overall_model_outputs_train.extend(outputs.detach().cpu().numpy().squeeze())
                     overall_targets_train.extend(targets.detach().cpu().numpy().squeeze())
@@ -628,7 +711,7 @@ def train_save_model_cross(images, responses, num_epochs, learning_rate, model_f
     print(f"Overall R^2 for cross validation last epoch: {r_squared:.4f}")
     # plot pixels
     plt.figure(figsize=(50, 6))
-    print(f"{np.array(overall_targets_val).shape=}, {np.array(overall_model_outputs_val).shape=}")
+    # print(f"{np.array(overall_targets_val).shape=}, {np.array(overall_model_outputs_val).shape=}")
     print(f"{np.array(overall_targets_val).squeeze()[:, 0].shape=}, {np.array(overall_model_outputs_val)[:, 0].shape=}")
     plt.plot(np.array(overall_targets_val).squeeze()[:, 0], np.array(overall_model_outputs_val)[:, 0], 'o', color="blue", label="Pixel 0")
     plt.plot(np.array(overall_targets_val).squeeze()[:, 1], np.array(overall_model_outputs_val)[:, 1], 'o',
@@ -639,17 +722,17 @@ def train_save_model_cross(images, responses, num_epochs, learning_rate, model_f
              color="purple", label="Pixel 3")
     plt.plot(np.array(overall_targets_val).squeeze()[:, 4], np.array(overall_model_outputs_val)[:, 4], 'o',
              color="yellow", label="Pixel 4")
-    plt.plot(np.array(overall_targets_val).squeeze()[:, 5], np.array(overall_model_outputs_val)[:, 5], 'o',
-             color="black", label="Pixel 5")
+    # plt.plot(np.array(overall_targets_val).squeeze()[:, 5], np.array(overall_model_outputs_val)[:, 5], 'o',
+    #          color="black", label="Pixel 5")
     plt.xlabel("True Value")
     plt.ylabel("Predicted Value")
     plt.title("True vs. Predicted Validation Samples")
     plt.legend()
     plt.savefig(plot_filepath + 'scatter_pixel_cross_validation.png')
     plt.show()
-    print(f"{np.array(overall_targets_train).shape=}, {np.array(overall_model_outputs_train).shape=}")
-    print(f"{np.array(overall_targets_train).squeeze()[:, 0].shape=}, {np.array(overall_model_outputs_train)[:, 0].shape=}")
-    for i in range(11):
+    # print(f"{np.array(overall_targets_train).shape=}, {np.array(overall_model_outputs_train).shape=}")
+    # print(f"{np.array(overall_targets_train).squeeze()[:, 0].shape=}, {np.array(overall_model_outputs_train)[:, 0].shape=}")
+    for i in range(2):
         plt.figure(figsize=(10, 6))
         plt.plot(np.array(overall_targets_train).squeeze()[:, i], np.array(overall_model_outputs_train)[:, i], 'o',
                  label=f"Pixel {i}")
@@ -657,7 +740,7 @@ def train_save_model_cross(images, responses, num_epochs, learning_rate, model_f
         plt.ylabel("Predicted Value")
         plt.title(f"True vs. Predicted Training Samples for Pixel {i}")
         plt.legend()
-        # plt.savefig(plot_filepath + f'scatter_pixel_{i}_cross_training.png')
+        plt.savefig(plot_filepath + f'scatter_pixel_{i}_cross_training.png')
         plt.show()
 
     # plt.figure(figsize=(50, 6))
@@ -683,34 +766,81 @@ def train_save_model_cross(images, responses, num_epochs, learning_rate, model_f
 
     torch.save(model.state_dict(), model_filepath + '_cross_validation.pth')
     # print(np.average(all_r_2_losses))
-    optimize_image(model, images_train.shape[2], responses_train.shape[1])
+    optimize_image(model, images_train.shape[1], responses_train.shape[1])
+from sklearn.linear_model import LinearRegression, Ridge, Lasso
+from sklearn.svm import SVR
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.metrics import mean_squared_error
 
-def train_save_model(images, responses, num_epochs, learning_rate, model_filepath, plot_filepath, model=None):
+def train_save_model_with_sklearn(images_train, responses_train, images_test, responses_test, model_type='random_forest'):
+    if model_type == 'linear':
+        model = LinearRegression()
+    elif model_type == 'ridge':
+        model = Ridge(alpha=1.0)
+    elif model_type == 'lasso':
+        model = Lasso(alpha=0.1)
+    elif model_type == 'svr':
+        model = SVR(kernel='rbf', C=1.0, epsilon=0.1)
+    elif model_type == 'random_forest':
+        model = RandomForestRegressor(n_estimators=250, max_depth=10, random_state=0)
+    else:
+        raise ValueError("Unsupported model type")
+
+    # Fit the model on the training data
+    model.fit(images_train, responses_train)
+
+    # Predict and evaluate on the training set
+    train_predictions = model.predict(images_train)
+    train_mse = mean_squared_error(responses_train, train_predictions)
+    ss_res_train = np.sum((responses_train.flatten() - train_predictions.flatten()) ** 2)
+    ss_tot_train = np.sum((responses_train - np.mean(responses_train)) ** 2)
+    r_squared_train = 1 - (ss_res_train / ss_tot_train)
+    print(f"Train Mean Squared Error ({model_type}):", train_mse)
+    print(f"Train R^2 ({model_type}):", r_squared_train)
+
+    # Predict and evaluate on the test set
+    test_predictions = model.predict(images_test)
+    test_mse = mean_squared_error(responses_test, test_predictions)
+    ss_res = np.sum((responses_test.flatten() - test_predictions.flatten()) ** 2)
+    ss_tot = np.sum((responses_test - np.mean(responses_test)) ** 2)
+    r_squared = 1 - (ss_res / ss_tot)
+    print(f"Test Mean Squared Error ({model_type}):", test_mse)
+    print(f"Test R^2 ({model_type}):", r_squared)
+
+    return model
+def train_save_model(images_train, responses_train, images_test, responses_test, num_epochs, learning_rate, model_filepath, plot_filepath, model=None):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f'Using device: {device}')
 
     torch.manual_seed(42)
 
-    images = images.astype(np.float32).reshape(-1, 1, images.shape[1])
-    responses = responses.astype(np.float32)
-    indexes = np.arange(images.shape[0])
-
+    # images = images.astype(np.float32).reshape(-1, 1, images.shape[1])
+    # responses = responses.astype(np.float32)
+    # indexes = np.arange(images.shape[0])
+    #
     # images_train, images_test, responses_train, responses_test, indexes_train, indexes_test = (
-        # train_test_split(images, responses, indexes, test_size=0.1, random_state=42))
-    indexes_test =  [125,51,138,19,104,12,76,31,81,9,26,96,143,67,134,272,198,285,166,251,159,223,178,228,156,173,243,290,214,281,419,345,432,313,398,306,370,325,375,303,320,390,437,361,428,566,492,579,460,545,453,517,472,522,450,467,537,584,508,575]
-    indexes_train = [num for num in range(588) if num not in indexes_test]
-    images_train, images_test = images[indexes_train], images[indexes_test]
-    responses_train, responses_test = responses[indexes_train], responses[indexes_test]
-    print("Training indexes:", indexes_train)
-    print("Test indexes:", indexes_test)
+    #      train_test_split(images, responses, indexes, test_size=0.1, random_state=42))
+    # indexes_test =  [125,51,138,19,104,12,76,31,81,9,26,96,143,67,134,272,198,285,166,251,159,223,178,228,156,173,243,290,214,281,419,345,432,313,398,306,370,325,375,303,320,390,437,361,428,566,492,579,460,545,453,517,472,522,450,467,537,584,508,575]
+    # indexes_train = [num for num in range(588) if num not in indexes_test]
+    # images_train, images_test = images[indexes_train], images[indexes_test]
+    # responses_train, responses_test = responses[indexes_train], responses[indexes_test]
+    # print("Training indexes:", indexes_train)
+    # print("Test indexes:", indexes_test)
+    # for i in range(responses_train.shape[1]):
+    #     plt.hist(np.array(responses_train)[:, i], bins=30, alpha=0.5, label=f"Pixel {i}")
+    # plt.show()
+    print(f"Training shapes: {images_train.shape}, {responses_train.shape}")
     train_dataset = CustomImageDataset(num_images=images_train.shape[0], images=images_train, targets=responses_train)
     test_dataset = CustomImageDataset(num_images=images_test.shape[0], images=images_test, targets=responses_test)
     train_dataloader = DataLoader(train_dataset, batch_size=10, shuffle=True, num_workers=0, pin_memory=True)
     test_dataloader = DataLoader(test_dataset, batch_size=10, shuffle=True, num_workers=0, pin_memory=True)
 
-    print(images_train.shape[2], responses_train.shape[1])
+
+
+    print(images_train.shape[1], responses_train.shape[1])
     if model is None:
-        model = PopulationCNN(input_size=images_train.shape[2], output_size=responses_train.shape[1])
+        model = DeeperNN(input_size=images_train.shape[1], output_size=responses_train.shape[1])
+        # model = PopulationCNN(input_size=images_train.shape[1], output_size=responses_train.shape[1])
     model.to(device)
 
     # criterion = nn.MSELoss()
@@ -724,6 +854,8 @@ def train_save_model(images, responses, num_epochs, learning_rate, model_filepat
     train_losses = []
     val_losses = []
     r_2_losses = []
+    train_targets_last_epoch = []
+    train_model_outputs_last_epoch = []
     for epoch in range(num_epochs):
         epoch_loss = 0.0
         progress_bar = tqdm(train_dataloader, desc=f"Epoch {epoch+1}/{num_epochs}")
@@ -739,7 +871,9 @@ def train_save_model(images, responses, num_epochs, learning_rate, model_filepat
 
             epoch_loss += loss.item()
             progress_bar.set_postfix(loss=loss.item())
-
+            if epoch == num_epochs - 1:
+                train_targets_last_epoch.extend(targets.cpu().detach().numpy())
+                train_model_outputs_last_epoch.extend(outputs.cpu().detach().numpy())
         average_loss = epoch_loss / len(train_dataloader)
         train_losses.append(average_loss)
         print(f"Epoch [{epoch+1}/{num_epochs}], Loss: {average_loss:.4f}")
@@ -755,8 +889,8 @@ def train_save_model(images, responses, num_epochs, learning_rate, model_filepat
                 outputs = model(inputs)
                 loss = criterion(outputs, targets)
                 val_loss += loss.item()
-                all_outputs.append(outputs.cpu().numpy())
-                all_true_outputs.append(targets.cpu().numpy())
+                all_outputs.extend(outputs.cpu().numpy())
+                all_true_outputs.extend(targets.cpu().numpy())
                 # print(targets.cpu().numpy().shape)
         true_outputs = np.array(all_true_outputs)
         model_outputs = np.array(all_outputs)
@@ -785,20 +919,290 @@ def train_save_model(images, responses, num_epochs, learning_rate, model_filepat
     plt.savefig(plot_filepath + '.png')
     plt.show()
     torch.save(model.state_dict(), model_filepath + '.pth')
-    # print("Prediction after training:")
-    # predict_image(model, images_test[0], responses_test[0])
+    # Additional plots for predicted vs ground truth
+    plt.figure(figsize=(50, 6))
+    plt.plot(train_targets_last_epoch, train_model_outputs_last_epoch, 'o')
+    # plt.plot(x, model_outputs, 'o', label="Predicted Values", color="orange"
+    plt.xlabel("True Value")
+    plt.ylabel("Predicted Value")
+    plt.title("True vs. Predicted Training Samples")
+    plt.legend()
+    plt.savefig(plot_filepath + 'scatter_cross_training.png')
+    plt.show()
+
+    # Calculate R^2 for the training set
+    train_targets_last_epoch = np.array(train_targets_last_epoch)
+    train_model_outputs_last_epoch = np.array(train_model_outputs_last_epoch)
+    ss_res = np.sum((train_targets_last_epoch.flatten() - train_model_outputs_last_epoch.flatten()) ** 2)
+    ss_tot = np.sum((train_targets_last_epoch - np.mean(train_targets_last_epoch)) ** 2)
+    r_squared = 1 - (ss_res / ss_tot)
+    print(f"Overall R^2 for training last epoch: {r_squared:.4f}")
+    for i in range(2):
+        plt.figure(figsize=(10, 6))
+        plt.plot(np.array(all_true_outputs).squeeze()[:, i], np.array(all_outputs)[:, i], 'o', label=f"Pixel {i}")
+        plt.xlabel("True Value")
+        plt.ylabel("Predicted Value")
+        plt.title(f"True vs. Predicted Testing Samples for Pixel {i}")
+        plt.legend()
+        plt.savefig(plot_filepath + f'scatter_pixel_{i}_testing.png')
+        # plt.show()
+    optimize_image(model, images_train.shape[1], responses_train.shape[1], model_filepath + '.pth', 1000000000, 0.01)
 
 
-# images = np.load("images_F0255_147_pca.npy")
-# responses = np.load("responses_F0255_25_pca.npy")
-# print(f"shapes: {images.shape}, {responses.shape}")
-# train_save_model(images, responses)
+def train_save_model_cross_full_images(images, responses, num_epochs, learning_rate, model_filepath, plot_filepath, model=None):
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+    print(f'Using device: {device}')
+    images = images.astype(np.float32)
+    responses = responses.astype(np.float32)
+
+
+
+
+    # Create groups to ensure the same images are not mixed between training and testing sets
+    # validation_indices, training_indices = generate_random_indices(num_folds, 147/num_folds, 146)
+    indices = np.arange(147)
+    np.random.shuffle(indices)  # Shuffle the indices
+    num_folds = 10
+    folds = np.array_split(indices, num_folds)
+    print(folds)
+
+    for ind, j in enumerate(folds):
+        curr_indices = folds[ind].copy()
+
+        indices_2 = curr_indices + 147
+        indices_3 = curr_indices + 294
+        indices_4 = curr_indices + 441
+        folds[ind] = np.concatenate((folds[ind], indices_2, indices_3, indices_4))
+    for i in range(num_folds):
+        for j in range(i + 1, num_folds):
+            overlap = set(folds[i] % 147) & set(folds[j] % 147)
+            if overlap:
+                print(f"Overlap between fold {i} and fold {j}: {overlap}")
+    print(folds)
+    fold = 0
+
+    plt.show()
+    all_train_losses = []
+    all_val_losses = []
+    all_r_2_losses = []
+    overall_model_outputs_train = []
+    overall_targets_train = []
+    overall_model_outputs_val = []
+    overall_targets_val = []
+    for index in range(num_folds):
+        # print(train_index % 147, val_index % 147)
+        val_index = folds[index]
+        train_index = np.concatenate([folds[i] for i in range(num_folds) if i != index])
+        # print("VAL", val_index)
+        print(len(train_index), len(val_index))
+        print(len(set(train_index % 147) - set(val_index % 147)))
+        fold += 1
+        print(f"Fold {fold}")
+        # print("Max, Min", max(responses), min(responses))
+        images_train, images_val = images[train_index], images[val_index]
+        responses_train, responses_val = responses[train_index], responses[val_index]
+        print(f"{responses_train.shape=}")
+        print(f"{images_train.shape=}")
+        train_dataset = CustomImageDataset(num_images=images_train.shape[0], images=images_train,
+                                           targets=responses_train)
+        val_dataset = CustomImageDataset(num_images=images_val.shape[0], images=images_val, targets=responses_val)
+        train_dataloader = DataLoader(train_dataset, batch_size=10, shuffle=True, num_workers=0, pin_memory=True)
+        val_dataloader = DataLoader(val_dataset, batch_size=1, shuffle=True, num_workers=0, pin_memory=True)
+
+
+
+        # Deeper NN
+        model = PopulationCNN(input_size=images_train.shape[2], output_size=responses_train.shape[1])
+
+        model.to(device)
+
+        # criterion = nn.L1Loss()
+        criterion = nn.MSELoss()
+        # criterion = MAPELoss()
+        optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, weight_decay=10e-3)
+        scaler = torch.cuda.amp.GradScaler()
+
+        train_losses = []
+        val_losses = []
+        r_2_losses = []
+
+        for epoch in range(num_epochs):
+            model.train()
+            epoch_loss = 0.0
+            progress_bar = tqdm(train_dataloader, desc=f"Epoch {epoch + 1}/{num_epochs}")
+            for batch_idx, (inputs, targets) in enumerate(progress_bar):
+                inputs = inputs.to(device)
+                targets = targets.to(device)
+
+
+                optimizer.zero_grad()
+                outputs = model(inputs)
+                loss = criterion(outputs, targets)
+                scaler.scale(loss).backward()
+                scaler.step(optimizer)
+                scaler.update()
+                epoch_loss += loss.item()
+                progress_bar.set_postfix(loss=loss.item())
+                if epoch == num_epochs - 1 and index == 0:
+                    # print("targets", targets.detach().cpu().numpy().squeeze().shape)
+                    overall_model_outputs_train.extend(outputs.detach().cpu().numpy().squeeze())
+                    overall_targets_train.extend(targets.detach().cpu().numpy().squeeze())
+            overall_targets_train_np = np.array(overall_targets_train)
+            overall_model_outputs_train_np = np.array(overall_model_outputs_train)
+            ss_res = np.sum((overall_targets_train_np.flatten() - overall_model_outputs_train_np.flatten()) ** 2)
+            ss_tot = np.sum((overall_targets_train_np - np.mean(overall_targets_train_np)) ** 2)
+            r_squared = 1 - (ss_res / ss_tot)
+            print(f"Overall R^2 for training last epoch: {r_squared:.4f}")
+            average_loss = epoch_loss / len(train_dataloader)
+            train_losses.append(average_loss)
+            print(f"Epoch [{epoch + 1}/{num_epochs}], Loss: {average_loss:.4f}")
+
+            model.eval()
+            val_loss = 0.0
+            all_targets_val = []
+            all_outputs_val = []
+            true_values_last_epoch = []
+            with torch.no_grad():
+                for inputs, targets in val_dataloader:
+                    inputs = inputs.to(device)
+                    targets = targets.to(device)
+                    outputs = model(inputs)
+                    loss = criterion(outputs, targets)
+                    val_loss += loss.item()
+                    all_outputs_val.append(outputs.cpu().numpy())
+                    all_targets_val.append(targets.cpu().numpy())
+                    if epoch == num_epochs - 1:
+                        overall_model_outputs_val.append(outputs.cpu().numpy().squeeze())
+                        overall_targets_val.append(targets.cpu().numpy())
+                        # print(overall_targets)
+                        # print(overall_model_outputs)
+                        # print("targets", targets.cpu().numpy()[0][0])
+                        # print("outputs", outputs.cpu().numpy()[0][0])
+            true_outputs = np.array(all_targets_val)
+            model_outputs = np.array(all_outputs_val)
+            ss_res = np.sum((true_outputs.flatten() - model_outputs.flatten()) ** 2)
+            ss_tot = np.sum((true_outputs - np.mean(true_outputs)) ** 2)
+            r_squared = 1 - (ss_res / ss_tot)
+            print(f"Overall R^2 for validation images: {r_squared:.4f}")
+            r_2_losses.append(r_squared)
+            val_loss /= len(val_dataloader)
+            val_losses.append(val_loss)
+            print(f"Validation Loss: {val_loss:.4f}")
+
+        all_train_losses.append(train_losses)
+        all_val_losses.append(val_losses)
+        all_r_2_losses.append(r_2_losses)
+    # print(all_val_indexes)
+    # Plot the losses and R^2 scores for each fold
+    y_limit = (0, 20)  # Change this to your desired range
+    plt.figure(figsize=(10, 6))
+    for i in range(num_folds):
+        plt.plot(all_train_losses[i], label=f'Training Loss Fold {i + 1}')
+        # plt.plot(all_val_losses[i], label=f'Validation Loss Fold {i+1}')
+        # plt.plot(all_r_2_losses[i], label=f'R^2 Loss Fold {i+1}')
+    plt.xlabel('Epoch')
+    plt.ylabel('Loss')
+    plt.title('Training Loss per Epoch')
+    # plt.ylim(y_limit)
+    plt.legend()
+    plt.savefig(plot_filepath + 'training_cross_validation.png')
+    plt.show()
+    plt.figure(figsize=(10, 6))
+    for i in range(num_folds):
+        # plt.plot(all_train_losses[i], label=f'Training Loss Fold {i + 1}')
+        plt.plot(all_val_losses[i], label=f'Validation Loss Fold {i + 1}')
+        # plt.plot(all_r_2_losses[i], label=f'R^2 Loss Fold {i+1}')
+    plt.xlabel('Epoch')
+    plt.ylabel('Loss')
+    plt.title('Validation Loss per Epoch')
+    # plt.ylim(y_limit)
+    plt.legend()
+    plt.savefig(plot_filepath + 'validation_cross_validation.png')
+    plt.show()
+    plt.figure(figsize=(10, 6))
+    for i in range(num_folds):
+        # plt.plot(all_train_losses[i], label=f'Training Loss Fold {i + 1}')
+        # plt.plot(all_val_losses[i], label=f'Validation Loss Fold {i + 1}')
+        plt.plot(all_r_2_losses[i], label=f'R^2 Loss Fold {i + 1}')
+    plt.xlabel('Epoch')
+    plt.ylabel('Loss')
+    plt.title('R^2')
+    plt.legend()
+    plt.savefig(plot_filepath + 'validation_r2_cross_validation.png')
+    plt.show()
+    for i in range(num_folds):
+        print(f"Fold {i + 1} - Min Validation Loss: {min(all_val_losses[i])}, Max R^2: {max(all_r_2_losses[i])}")
+    true_outputs = np.array(overall_targets_val)
+    model_outputs = np.array(overall_model_outputs_val)
+    ss_res = np.sum((true_outputs.flatten() - model_outputs.flatten()) ** 2)
+    ss_tot = np.sum((true_outputs - np.mean(true_outputs)) ** 2)
+    r_squared = 1 - (ss_res / ss_tot)
+    print(f"Overall R^2 for cross validation last epoch: {r_squared:.4f}")
+    # plot pixels
+    plt.figure(figsize=(50, 6))
+    # print(f"{np.array(overall_targets_val).shape=}, {np.array(overall_model_outputs_val).shape=}")
+    print(f"{np.array(overall_targets_val).squeeze()[:, 0].shape=}, {np.array(overall_model_outputs_val)[:, 0].shape=}")
+    plt.plot(np.array(overall_targets_val).squeeze()[:, 0], np.array(overall_model_outputs_val)[:, 0], 'o',
+             color="blue", label="Pixel 0")
+    plt.plot(np.array(overall_targets_val).squeeze()[:, 1], np.array(overall_model_outputs_val)[:, 1], 'o',
+             color="red", label="Pixel 1")
+    plt.plot(np.array(overall_targets_val).squeeze()[:, 2], np.array(overall_model_outputs_val)[:, 2], 'o',
+             color="green", label="Pixel 2")
+    plt.plot(np.array(overall_targets_val).squeeze()[:, 3], np.array(overall_model_outputs_val)[:, 3], 'o',
+             color="purple", label="Pixel 3")
+    plt.plot(np.array(overall_targets_val).squeeze()[:, 4], np.array(overall_model_outputs_val)[:, 4], 'o',
+             color="yellow", label="Pixel 4")
+    # plt.plot(np.array(overall_targets_val).squeeze()[:, 5], np.array(overall_model_outputs_val)[:, 5], 'o',
+    #          color="black", label="Pixel 5")
+    plt.xlabel("True Value")
+    plt.ylabel("Predicted Value")
+    plt.title("True vs. Predicted Validation Samples")
+    plt.legend()
+    plt.savefig(plot_filepath + 'scatter_pixel_cross_validation.png')
+    plt.show()
+    # print(f"{np.array(overall_targets_train).shape=}, {np.array(overall_model_outputs_train).shape=}")
+    # print(f"{np.array(overall_targets_train).squeeze()[:, 0].shape=}, {np.array(overall_model_outputs_train)[:, 0].shape=}")
+    for i in range(2):
+        plt.figure(figsize=(10, 6))
+        plt.plot(np.array(overall_targets_train).squeeze()[:, i], np.array(overall_model_outputs_train)[:, i], 'o',
+                 label=f"Pixel {i}")
+        plt.xlabel("True Value")
+        plt.ylabel("Predicted Value")
+        plt.title(f"True vs. Predicted Training Samples for Pixel {i}")
+        plt.legend()
+        plt.savefig(plot_filepath + f'scatter_pixel_{i}_cross_training.png')
+        plt.show()
+
+    # plt.figure(figsize=(50, 6))
+    # plt.plot(np.array(overall_targets_val).squeeze(),np.array(overall_model_outputs_val).squeeze(), 'o')
+    # plt.xlabel("True Value")
+    # plt.ylabel("Predicted Value")
+    # plt.title("True vs. Predicted Validation Samples")
+    # plt.legend()
+    # plt.savefig(plot_filepath + 'scatter_cross_validation.png')
+    # plt.show()
+
+    # plt.figure(figsize=(50, 6))
+    # plt.plot(overall_targets_train, overall_model_outputs_train, 'o')
+    # # plt.plot(x, model_outputs, 'o', label="Predicted Values", color="orange"
+    # plt.xlabel("True Value")
+    # plt.ylabel("Predicted Value")
+    # plt.title("True vs. Predicted Training Samples")
+    # plt.legend()
+    # plt.savefig(plot_filepath + 'scatter_cross_training.png')
+    # plt.show()
+    # plt.savefig(plot_filepath + 'scatter_cross_validation.png')
+
+    torch.save(model.state_dict(), model_filepath + '_cross_validation.pth')
+    # print(np.average(all_r_2_losses))
+    optimize_image(model, images_train.shape[1], responses_train.shape[1])
 
 
 
 
 
 
-# Example usage:
-# model = YourModel(input_size, output_size)
-# optimized_image = optimize_image(model, input_size)
+
+
+

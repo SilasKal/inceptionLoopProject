@@ -1,5 +1,6 @@
 from PIL import Image
 from sklearn.decomposition import PCA
+from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 import os
 import re
@@ -393,7 +394,7 @@ def test_model(model_name, input_image, true_output, pca_name_response, scaler_n
     return output_image, true_output, loss_test_image,r_2[0], r_squared
 
 
-from model import PopulationCNN
+from model import PopulationCNN, train_save_model_cross_full_images
 # responses_pca = np.load("responses_F0255_25_pca.npy")
 # images_pca = np.load("images_F0255_147_pca.npy")
 
@@ -485,7 +486,16 @@ import matplotlib.pyplot as plt
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.spatial.distance import cdist
-
+def get_pixel_value_standardized(responses, pixels):
+    values = np.array([responses[:, row, col] for row, col in pixels])
+    values = values.T
+    mean_values = np.mean(values, axis=0)
+    std_values = np.std(values, axis=0)
+    print(mean_values)
+    print(std_values)
+    standardized_values = (values - mean_values) / std_values
+    print(f"{standardized_values.shape=}")
+    return standardized_values
 def find_pixels_with_most_variance(images, num_of_pixels=1):
     variance = np.nanvar(images, axis=0)
     valid_mask = np.isfinite(variance)
@@ -507,99 +517,195 @@ def get_common_pixels_within_distance(pixels_list, distance=3):
     return common_pixels
 
 
-def get_pixel_with_most_variance(num_of_pixels=1):
-    _, _, responses_12 = match_pictures_with_response("F0255/tseries_12/stimparams.dict", "F0255/1_roi_morphed.npy", "F0255/tseries_12/response_array_1s_interval.npy")
-    _, _, responses_13 = match_pictures_with_response("F0255/tseries_13/stimparams.dict", "F0255/1_roi_morphed.npy", "F0255/tseries_13/response_array_1s_interval.npy")
-    _, _, responses_14 = match_pictures_with_response("F0255/tseries_14/stimparams.dict", "F0255/1_roi_morphed.npy", "F0255/tseries_14/response_array_1s_interval.npy")
-    _, _, responses_15 = match_pictures_with_response("F0255/tseries_15/stimparams.dict", "F0255/1_roi_morphed.npy", "F0255/tseries_15/response_array_1s_interval.npy")
+def get_pixel_with_most_variance(num_of_pixels=1, one_trial = False):
+    if one_trial:
+        _, _, responses = match_pictures_with_response("F0255/tseries_12/stimparams.dict", "F0255/1_roi_morphed.npy", "F0255/tseries_12/response_array_1s_interval.npy")
+        max_var_pixels, variance = find_pixels_with_most_variance(responses, num_of_pixels)
+        common_pixels = max_var_pixels
+        plt.imshow(variance)
+        plt.plot([pixel[1] for pixel in common_pixels], [pixel[0] for pixel in common_pixels], 'ro')
+        plt.show()
+        values = get_pixel_value_standardized(responses, common_pixels)
+        print(f"{values.shape=}")
+        print(f"{responses.shape=}")
+        return common_pixels, values, responses
+    else:
+        _, _, responses_12 = match_pictures_with_response("F0255/tseries_12/stimparams.dict", "F0255/1_roi_morphed.npy", "F0255/tseries_12/response_array_1s_interval.npy")
+        _, _, responses_13 = match_pictures_with_response("F0255/tseries_13/stimparams.dict", "F0255/1_roi_morphed.npy", "F0255/tseries_13/response_array_1s_interval.npy")
+        _, _, responses_14 = match_pictures_with_response("F0255/tseries_14/stimparams.dict", "F0255/1_roi_morphed.npy", "F0255/tseries_14/response_array_1s_interval.npy")
+        _, _, responses_15 = match_pictures_with_response("F0255/tseries_15/stimparams.dict", "F0255/1_roi_morphed.npy", "F0255/tseries_15/response_array_1s_interval.npy")
 
-    max_var_pixels_12, variance_12 = find_pixels_with_most_variance(responses_12, num_of_pixels)
-    max_var_pixels_13, variance_13 = find_pixels_with_most_variance(responses_13, num_of_pixels)
-    max_var_pixels_14, variance_14 = find_pixels_with_most_variance(responses_14, num_of_pixels)
-    max_var_pixels_15, variance_15 = find_pixels_with_most_variance(responses_15, num_of_pixels)
+        max_var_pixels_12, variance_12 = find_pixels_with_most_variance(responses_12, num_of_pixels)
+        max_var_pixels_13, variance_13 = find_pixels_with_most_variance(responses_13, num_of_pixels)
+        max_var_pixels_14, variance_14 = find_pixels_with_most_variance(responses_14, num_of_pixels)
+        max_var_pixels_15, variance_15 = find_pixels_with_most_variance(responses_15, num_of_pixels)
+        max_pixels_all_trials = []
+        max_pixels_all_trials.extend(max_var_pixels_12)
+        max_pixels_all_trials.extend(max_var_pixels_13)
+        max_pixels_all_trials.extend(max_var_pixels_14)
+        max_pixels_all_trials.extend(max_var_pixels_15)
+        common_pixels = set(max_pixels_all_trials)
+        # common_pixels = get_common_pixels_within_distance([max_var_pixels_12, max_var_pixels_13, max_var_pixels_14, max_var_pixels_15], distance=10)
 
-    common_pixels = get_common_pixels_within_distance([max_var_pixels_12, max_var_pixels_13, max_var_pixels_14, max_var_pixels_15], distance=10)
+        plt.figure(figsize=(12, 10))
+        plt.subplot(2, 3, 1)
+        plt.imshow(variance_12)
+        plt.title("Variance Map - Trial 12")
+        plt.colorbar()
+        for pixel in max_var_pixels_12:
+            plt.plot(pixel[1], pixel[0], 'ro')
 
-    # print("Pixels with most variance in trial 12:", max_var_pixels_12)
-    # print("Pixels with most variance in trial 13:", max_var_pixels_13)
-    # print("Pixels with most variance in trial 14:", max_var_pixels_14)
-    # print("Pixels with most variance in trial 15:", max_var_pixels_15)
-    print("Common pixels in all trials within 1 pixels:", len(common_pixels))
+        plt.subplot(2, 3, 2)
+        plt.imshow(variance_13)
+        plt.title("Variance Map - Trial 13")
+        plt.colorbar()
+        for pixel in max_var_pixels_13:
+            plt.plot(pixel[1], pixel[0], 'ro')
 
-    # for i, pixel in enumerate(max_var_pixels_12):
-    #     print(f"Variance for pixel {i} in trial 12: {variance_12[pixel]}")
-    # for i, pixel in enumerate(max_var_pixels_13):
-    #     print(f"Variance for pixel {i} in trial 13: {variance_13[pixel]}")
-    # for i, pixel in enumerate(max_var_pixels_14):
-    #     print(f"Variance for pixel {i} in trial 14: {variance_14[pixel]}")
-    # for i, pixel in enumerate(max_var_pixels_15):
-    #     print(f"Variance for pixel {i} in trial 15: {variance_15[pixel]}")
+        plt.subplot(2, 3, 3)
+        plt.imshow(variance_14)
+        plt.title("Variance Map - Trial 14")
+        plt.colorbar()
+        for pixel in max_var_pixels_14:
+            plt.plot(pixel[1], pixel[0], 'ro')
+
+        plt.subplot(2, 3, 4)
+        plt.imshow(variance_15)
+        plt.title("Variance Map - Trial 15")
+        plt.colorbar()
+        for pixel in max_var_pixels_15:
+            plt.plot(pixel[1], pixel[0], 'ro')
+
+        plt.subplot(2, 3, 5)
+        plt.imshow(variance_15)
+        plt.title("Common Pixels")
+        plt.colorbar()
+        for pixel in common_pixels:
+            plt.plot(pixel[1], pixel[0], 'ro')
+
+        plt.tight_layout()
+        plt.show()
+        print(f"{common_pixels=}")
+        return common_pixels, [responses_12, responses_13, responses_14, responses_15]
 
 
-    plt.figure(figsize=(12, 10))
-    plt.subplot(2, 3, 1)
-    plt.imshow(variance_12)
-    plt.title("Variance Map - Trial 12")
+def find_pixels_with_most_and_least_variance(num_of_pixels=1, threshold=1e-4):
+    # Find pixels with the most variance within each trial
+    _, _, responses_12 = match_pictures_with_response("F0255/tseries_12/stimparams.dict", "F0255/1_roi_morphed.npy",
+                                                      "F0255/tseries_12/response_array_1s_interval.npy")
+    _, _, responses_13 = match_pictures_with_response("F0255/tseries_13/stimparams.dict", "F0255/1_roi_morphed.npy",
+                                                      "F0255/tseries_13/response_array_1s_interval.npy")
+    _, _, responses_14 = match_pictures_with_response("F0255/tseries_14/stimparams.dict", "F0255/1_roi_morphed.npy",
+                                                      "F0255/tseries_14/response_array_1s_interval.npy")
+    _, _, responses_15 = match_pictures_with_response("F0255/tseries_15/stimparams.dict", "F0255/1_roi_morphed.npy",
+                                                      "F0255/tseries_15/response_array_1s_interval.npy")
+
+    responses_list = [responses_12, responses_13, responses_14, responses_15]
+    variance_12 = np.nanvar(responses_12, axis=0)
+    valid_mask = np.isfinite(variance_12)
+    valid_variance = variance_12[valid_mask]
+    max_variance_indices = np.argpartition(valid_variance, -num_of_pixels)[-num_of_pixels:]
+    max_variance_pixels = [np.unravel_index(index, variance_12.shape) for index in
+                           np.flatnonzero(valid_mask)[max_variance_indices]]
+    variance_all = np.nanvar(responses_list, axis=0)
+    valid_variance_pixels = np.argwhere(variance_all > threshold)
+    print(f"Number of pixels with variance above the threshold: {len(valid_variance_pixels)}")
+    print(f"Variance threshold: {threshold}")
+    sorted_indices = np.argsort(variance_all[tuple(zip(*valid_variance_pixels))])
+    min_variance_pixels = valid_variance_pixels[sorted_indices[:num_of_pixels]]
+    print(f" {min_variance_pixels=} ")
+    min_variance_pixels_coordinates = [(row, col) for _, row, col in min_variance_pixels]
+
+
+
+    # Filter max_var_pixels to include only those with least variance between trials
+    print(f"{len(max_variance_pixels)=}")
+    filtered_pixels = [pixel for pixel in max_variance_pixels if
+                       tuple(pixel) in map(tuple, min_variance_pixels_coordinates)]
+    print(f"{len(filtered_pixels)=}")
+    plt.figure(figsize=(10, 8))
+
+    # Plot max variance pixels
+    plt.subplot(1, 2, 1)
+    plt.imshow(variance_all[0])
+    plt.title("Max Variance Pixels")
     plt.colorbar()
-    for pixel in max_var_pixels_12:
+    for pixel in max_variance_pixels:
         plt.plot(pixel[1], pixel[0], 'ro')
 
-    plt.subplot(2, 3, 2)
-    plt.imshow(variance_13)
-    plt.title("Variance Map - Trial 13")
+    # Plot valid variance pixels
+    plt.subplot(1, 2, 2)
+    plt.imshow(variance_all[0])
+    plt.title("Min Variance Pixels")
     plt.colorbar()
-    for pixel in max_var_pixels_13:
-        plt.plot(pixel[1], pixel[0], 'ro')
-
-    plt.subplot(2, 3, 3)
-    plt.imshow(variance_14)
-    plt.title("Variance Map - Trial 14")
-    plt.colorbar()
-    for pixel in max_var_pixels_14:
-        plt.plot(pixel[1], pixel[0], 'ro')
-
-    plt.subplot(2, 3, 4)
-    plt.imshow(variance_15)
-    plt.title("Variance Map - Trial 15")
-    plt.colorbar()
-    for pixel in max_var_pixels_15:
-        plt.plot(pixel[1], pixel[0], 'ro')
-
-    plt.subplot(2, 3, 5)
-    plt.imshow(variance_15)
-    plt.title("Common Pixels")
-    plt.colorbar()
-    for pixel in common_pixels:
-        plt.plot(pixel[1], pixel[0], 'ro')
+    for pixel in min_variance_pixels_coordinates:
+        plt.plot(pixel[1], pixel[0], 'bo')
 
     plt.tight_layout()
     plt.show()
 
-    return common_pixels, [responses_12, responses_13, responses_14, responses_15]
+    plt.figure(figsize=(10, 8))
+    plt.imshow(variance_all[0])
+    plt.title("Filtered Pixels")
+    plt.colorbar()
+    for pixel in filtered_pixels:
+        plt.plot(pixel[1], pixel[0], 'ro')
+    plt.show()
+    values = get_pixel_value_standardized(responses_12, filtered_pixels)
+    #print(f"{values=}")
+    return filtered_pixels, values, responses_12
 
+# combined both approaches for pixels
+# _, values, _ = find_pixels_with_most_and_least_variance(num_of_pixels=1000, threshold=10e-4)
+
+
+def get_pixels_with_min_var_above_threshold(threshold=1e-4, num_pixels=500):
+    _, _, responses_12 = match_pictures_with_response("F0255/tseries_12/stimparams.dict", "F0255/1_roi_morphed.npy",
+                                                      "F0255/tseries_12/response_array_1s_interval.npy")
+    _, _, responses_13 = match_pictures_with_response("F0255/tseries_13/stimparams.dict", "F0255/1_roi_morphed.npy",
+                                                      "F0255/tseries_13/response_array_1s_interval.npy")
+    _, _, responses_14 = match_pictures_with_response("F0255/tseries_14/stimparams.dict", "F0255/1_roi_morphed.npy",
+                                                      "F0255/tseries_14/response_array_1s_interval.npy")
+    _, _, responses_15 = match_pictures_with_response("F0255/tseries_15/stimparams.dict", "F0255/1_roi_morphed.npy",
+                                                      "F0255/tseries_15/response_array_1s_interval.npy")
+
+    variance = np.nanvar([responses_12, responses_13, responses_14, responses_15], axis=0)
+    valid_variance_pixels = np.argwhere(variance > threshold)
+    print(f"Number of pixels with variance above the threshold: {len(valid_variance_pixels)}")
+    print(f"Variance threshold: {threshold}")
+
+    if len(valid_variance_pixels) == 0:
+        print("No pixels found with variance above the threshold.")
+        return None, [responses_12, responses_13, responses_14, responses_15]
+
+    sorted_indices = np.argsort(variance[tuple(zip(*valid_variance_pixels))])
+    min_variance_pixels = valid_variance_pixels[sorted_indices[:num_pixels]]
+    # print(f"Minimum variance pixels: {min_variance_pixels}, Variances: {variance[tuple(zip(*min_variance_pixels))]}")
+    min_variance_pixels_coordinates = [(row, col) for _, row, col in min_variance_pixels]
+    print(f"Minimum variance pixels coordinates: {min_variance_pixels_coordinates}")
+    plt.imshow(variance[0])
+    plt.title(f"lowest variance pixels threshold {threshold}, num pixels {num_pixels}")
+    plt.colorbar()
+    for pixel in min_variance_pixels:
+        plt.plot(pixel[2], pixel[1], 'ro')
+    plt.show()
+    # print(f"{min_variance_pixels=}")
+
+    return min_variance_pixels_coordinates, [responses_12, responses_13, responses_14, responses_15]
 def get_pixel_value(responses, pixels):
     values = np.array([responses[:, row, col] for row, col in pixels])
     values = values.T
     print(values.shape)
     return values
 
-def get_pixel_value_standardized(responses, pixels):
-    values = np.array([responses[:, row, col] for row, col in pixels])
-    values = values.T
-    mean_values = np.mean(values, axis=0)
-    std_values = np.std(values, axis=0)
-    print(mean_values)
-    print(std_values)
-    standardized_values = (values - mean_values) / std_values
-    print(standardized_values.shape)
-    return standardized_values
+
 
 def get_pixels_all_responses(responses_all_trials, pixels):
-    all_values = np.zeros((147 * 4, len(common_pixels)))
+    all_values = np.zeros((147 * 4, len(pixels))) # changed from common_pixels
     print(f"{all_values.shape=}")
     for index, response_trial in enumerate(responses_all_trials):
-        # curr_values = get_pixel_value(response_trial, pixels)
-        curr_values = get_pixel_value_standardized(response_trial, pixels)
+        curr_values = get_pixel_value(response_trial, pixels)
+        #curr_values = get_pixel_value_standardized(response_trial, pixels)
         if index == 0:
             index_0 = 0
         else:
@@ -609,25 +715,103 @@ def get_pixels_all_responses(responses_all_trials, pixels):
         all_values[index_0:index_1, :] = curr_values
     print(f"{all_values.shape=}")
     return all_values
-# common_pixels, responses = get_pixel_with_most_variance(num_of_pixels=225) # 101 common
-# common_pixels, responses = get_pixel_with_most_variance(num_of_pixels=100) # 1 common
-# common_pixels, responses = get_pixel_with_most_variance(num_of_pixels=225) # 101 common
+
+# common_pixels, responses = get_pixel_with_most_variance(num_of_pixels=3) # 101 common
+
+# common_pixels,values, responses = get_pixel_with_most_variance(500, True)
+# common_pixels, responses = get_pixel_with_most_variance(num_of_pixels=3) # 1 common
+# common_pixels, responses = get_pixel_with_most_variance(num_of_pixels=140) # 70
 # print(f"{len(common_pixels)=}")
 # responses_pixels = get_pixels_all_responses(responses, common_pixels)
+# low_variance_pixels, responses = get_pixels_with_min_var_above_threshold(10**-4, 250)
+# low_variance_pixels, responses = get_pixels_with_min_var_above_threshold(10**-5, 50)
+# responses_pixels = get_pixels_all_responses(responses, low_variance_pixels)
+
+from imblearn.over_sampling import RandomOverSampler
+
+import numpy as np
+from imblearn.over_sampling import RandomOverSampler
+
+import numpy as np
+from imblearn.over_sampling import RandomOverSampler
+
+from collections import Counter
+import numpy as np
+from imblearn.over_sampling import RandomOverSampler
+
+
+def oversample_by_threshold(images_pca, responses_pixels, above_threshold, below_threshold, oversample_factor=1):
+    """
+    Oversample data where responses_pixels meet a threshold condition.
+
+    Parameters:
+        images_pca (np.ndarray): Input data with shape (N_samples, N_features).
+        responses_pixels (np.ndarray): Target data with shape (N_samples, N_responses).
+        above_threshold (float): The upper threshold to filter the responses_pixels.
+        below_threshold (float): The lower threshold to filter the responses_pixels.
+        oversample_factor (int): The factor by which to oversample the data.
+
+    Returns:
+        np.ndarray, np.ndarray: Oversampled images_pca and responses_pixels.
+    """
+
+    indexes = np.arange(images_pca.shape[0])
+    # images_pca = images_pca.astype(np.float32).reshape(-1, 1, images_pca.shape[1])
+    images_pca = images_pca.astype(np.float32)
+    responses_pixels = responses_pixels.astype(np.float32)
+    print(f"{images_pca.shape=}", f"{responses_pixels.shape=}")
+    images_train, images_test, responses_train, responses_test, indexes_train, indexes_test = (
+        train_test_split(images_pca, responses_pixels, indexes, test_size=0.1, random_state=42))
+    responses_pixels = responses_train
+    images_pca = images_train
+    print(np.any((responses_pixels > above_threshold) | (responses_pixels < below_threshold), axis=1))
+    mask = np.any((responses_pixels > above_threshold) | (responses_pixels < below_threshold), axis=1)
+    images_above_below_threshold = images_pca[mask]
+    responses_above_below_threshold = responses_pixels[mask]
+    print(f"{images_above_below_threshold.shape=}")
+    print(f"{responses_above_below_threshold.shape=}")
+
+    # Calculate the number of samples to oversample to match the rest of the data
+    original_count = len(images_pca)
+    oversample_count = (original_count - len(images_above_below_threshold)) * oversample_factor
+
+    # if oversample_factor == 0:
+      #   return images_train, responses_train, images_test, responses_test
+    if oversample_count <= 0:
+        # No need to oversample, return the original data
+        return images_train, responses_train, images_test, responses_test
+
+    # Oversample by randomly duplicating rows from the above/below-threshold data
+    indices_to_duplicate = np.random.choice(len(images_above_below_threshold), oversample_count, replace=True)
+    oversampled_images = images_above_below_threshold[indices_to_duplicate]
+    oversampled_responses = responses_above_below_threshold[indices_to_duplicate]
+
+    # Combine the original data with the oversampled data
+    images_oversampled = np.vstack((images_pca, oversampled_images))
+    responses_oversampled = np.vstack((responses_pixels, oversampled_responses))
+
+    return images_oversampled, responses_oversampled, images_test, responses_test
+
+from model import train_save_model_with_sklearn
 from model import optimize_image
 def pipeline_pixels(responses_pixels, images_pca, num_epochs, learning_rate, run_name):
     directory_path = run_name
     os.makedirs(directory_path, exist_ok=True)
     print(f"{images_pca.shape=}")
-    train_save_model_cross(images_pca, responses_pixels, num_epochs, learning_rate,
-                           run_name + "/model" + "_" + str(num_epochs) + "_" +
-                           str(learning_rate), run_name + "/model_plot", None)
 
-# pipeline_pixels(responses_pixels, np.load("all_trials/images_pca_vectors_147.npy"), 5, 10e-3, "pixels")
-# pipeline_pixels(responses_pixels, np.load("all_trials/images_pca_vectors_147.npy"), 500, 10e-5, "pixels")
-# 1e-5
+    # print(f"responses_pixels shape: {responses_pixels.shape}")
 
-def get_most_exciting_stimuli():
+    images_train, responses_train, images_test, responses_test = oversample_by_threshold(images_pca, responses_pixels, 0.1, -0.025, 0) # 0.10 - 0.10 100,
+    print(f"{images_pca.shape=}")
+    print(f"responses_pixels shape: {responses_pixels.shape}")
+    # one trial
+    train_save_model(images_train, responses_train, images_test, responses_test, num_epochs, learning_rate,run_name + "/model" + "_" + str(num_epochs) + "_" +
+                            str(learning_rate), run_name + "/model_plot", None)
+    #train_save_model_with_sklearn(images_train, responses_train, images_test, responses_test)
+    # train_save_model_cross(images_pca, responses_pixels, num_epochs, learning_rate,
+      #                       run_name + "/model" + "_" + str(num_epochs) + "_" +
+        #                   str(learning_rate), run_name + "/model_plot", None)
+def get_most_exciting_stimuli(search_pixels=None):
     _, images_12, responses_12 = match_pictures_with_response("F0255/tseries_12/stimparams.dict",
                                                               "F0255/1_roi_morphed.npy",
                                                               "F0255/tseries_12/response_array_1s_interval.npy")
@@ -644,34 +828,63 @@ def get_most_exciting_stimuli():
     responses_list = [responses_12, responses_13, responses_14, responses_15]
     images_list = [images_12, images_13, images_14, images_15]
     titles = ["Trial 12", "Trial 13", "Trial 14", "Trial 15"]
+    search_pixels = list(search_pixels)
+
+    # Filter out invalid coordinates
+    valid_search_pixels = [(row, col) for row, col in search_pixels if
+                           row < responses_12.shape[1] and col < responses_12.shape[2]]
 
     plt.figure(figsize=(24, 12))
     for i, (responses, images, title) in enumerate(zip(responses_list, images_list, titles)):
         print(f"{title} shape:", responses.shape)
-        max_values = np.nanmax(responses, axis=(1, 2))
-        # print(f"Highest Response for each picture in {title}:", max_values)
-        print(f"Highest Response Value in {title}:", np.max(max_values), "at index", np.argmax(max_values))
-        index = np.argmax(max_values)
-        max_response_coords = np.unravel_index(np.nanargmax(responses[index]), responses[index].shape)
+        if valid_search_pixels:
+            max_values = [np.nanmax(responses[:, row, col]) for row, col in valid_search_pixels]
+            max_index = np.argmax(max_values)
+            max_value = max_values[max_index]
+            max_response_coords = valid_search_pixels[max_index]
+        else:
+            max_values = np.nanmax(responses, axis=(1, 2))
+            max_value = np.max(max_values)
+            max_index = np.argmax(max_values)
+            max_response_coords = np.unravel_index(np.nanargmax(responses[max_index]), responses[max_index].shape)
 
-        # Plot the response
+        print(f"Highest Response Value in {title}:", max_value, "at index", max_index)
+        max_index = max_index % 147  # Get the correct index if the response is from multiple trials
         plt.subplot(4, 2, 2 * i + 1)
-        plt.imshow(responses[index], interpolation='nearest')
+        plt.imshow(responses[max_index], interpolation='nearest')
         plt.plot(max_response_coords[1], max_response_coords[0], 'ro')  # Plot the highest response point
-        plt.title(f"Response {title} at index {index}")
+        plt.title(f"Response {title} at index {max_index}")
         plt.colorbar()
 
         # Plot the corresponding image
         plt.subplot(4, 2, 2 * i + 2)
-        plt.imshow(images[index], cmap='gray')
-        plt.title(f"Image {title} at index {index}")
+        plt.imshow(images[max_index], cmap='gray')
+        plt.title(f"Image {title} at index {max_index}")
         plt.colorbar()
 
     plt.tight_layout()
     plt.savefig("most_exciting_stimuli.png")
     plt.show()
 
-get_most_exciting_stimuli()
+# get_most_exciting_stimuli(common_pixels)
+
+# pipeline_pixels(responses_pixels, np.load("all_trials/images_pca_vectors_147.npy"), 5, 10e-3, "pixels")
+# pipeline_pixels(responses_pixels, np.load("all_trials/images_pca_vectors_147.npy"), 15, 10e-5, "pixels")
+# pipeline_pixels(responses_pixels, np.load("all_trials/images_pca_vectors_147.npy"), 150, 10e-5, "pixels")
+# 1e-5
+
+
+# one Trial, pixels
+# images_pca_one_trial = np.load("all_trials/images_pca_vectors_147.npy")[0:147]
+# print(f"{images_pca_one_trial.shape=}")
+# pipeline_pixels(values, images_pca_one_trial, 25, 1e-5, "pixels_combined")
+
+# pipeline_pixels(responses_pixels, np.load("all_trials/images_pca_vectors_147.npy"), 25, 10e-5, "pixels_low_variance")
+
+# get_most_exciting_stimuli(common_pixels)
+# for i in range(4, 6):
+#     common_pixels = get_pixels_with_min_var_above_threshold(10**-i, 100)
+#     get_most_exciting_stimuli(common_pixels[0])
 def pipeline(stims_param_filepath, roi_data_filepath, response_data_filepath, run_name, n_components_responses,
              n_components_images, learning_rate, num_epochs, test_indices):
     directory_path = run_name
@@ -745,8 +958,8 @@ def pipeline(stims_param_filepath, roi_data_filepath, response_data_filepath, ru
 # all trials !!
 # with cross validation
 # pipeline("F0255/tseries_12/stimparams.dict", "F0255/1_roi_morphed.npy",
-   #       "F0255/avg_responses_12_13_14_15_F0255.npy", "all_trials", 1,
-   #       147, 1e-5, 10,  list(range(147)))
+#          "F0255/avg_responses_12_13_14_15_F0255.npy", "all_trials", 50,
+#           147, 1e-5, 250,  list(range(147)))
 
 def separate_trials(stims_param_filepath, roi_data_filepath, response_data_filepath, run_name, n_components_responses,
              n_components_images, learning_rate, num_epochs, test_indices):
@@ -842,3 +1055,31 @@ def separate_trials(stims_param_filepath, roi_data_filepath, response_data_filep
 # # Calculate R^2
 # r_squared = 1 - (ss_res / ss_tot)
 # print(r_squared, "INSGESAMT R^2")
+
+
+def pipeline_full_images(run_name, learning_rate, num_epochs ):
+    directory_path = run_name
+    os.makedirs(directory_path, exist_ok=True)
+    # match images with responses and apply filter + high low normalize
+    _, images_12, responses_12 = match_pictures_with_response("F0255/tseries_12/stimparams.dict",
+                                                        "F0255/1_roi_morphed.npy",
+                                                        "F0255/tseries_12/response_array_1s_interval.npy")
+    _, images_13, responses_13 = match_pictures_with_response("F0255/tseries_13/stimparams.dict",
+                                                        "F0255/1_roi_morphed.npy",
+                                                        "F0255/tseries_13/response_array_1s_interval.npy")
+    _, images_14, responses_14 = match_pictures_with_response("F0255/tseries_14/stimparams.dict",
+                                                        "F0255/1_roi_morphed.npy",
+                                                        "F0255/tseries_14/response_array_1s_interval.npy")
+    _, images_15, responses_15 = match_pictures_with_response("F0255/tseries_15/stimparams.dict",
+                                                        "F0255/1_roi_morphed.npy",
+                                                        "F0255/tseries_15/response_array_1s_interval.npy")
+    images = np.concatenate((images_12, images_13, images_14, images_15), axis=0)
+    responses = np.concatenate((responses_12, responses_13, responses_14, responses_15), axis=0)
+    np.save(run_name + "/images.npy", images)
+    np.save(run_name + "/responses.npy", responses)
+    print(15 * "-" + "Matching Images to Responses completed" + 15 * "-")
+    train_save_model_cross_full_images(images, responses, num_epochs, learning_rate,
+                           run_name + "/model" + "_" + str(num_epochs) + "_" +
+                           str(learning_rate), run_name + "/model_plot", None)
+
+pipeline_full_images("full_images", 1e-3, 5)
