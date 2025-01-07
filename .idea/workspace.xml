@@ -4,7 +4,7 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="f78c631b-bdfd-485a-bf23-1f19675f09ad" name="Changes" comment="added get_most_exciting_stimuli">
+    <list default="true" id="f78c631b-bdfd-485a-bf23-1f19675f09ad" name="Changes" comment="added crossvalidation">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/data_loading.py" beforeDir="false" afterPath="$PROJECT_DIR$/data_loading.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/model.py" beforeDir="false" afterPath="$PROJECT_DIR$/model.py" afterDir="false" />
@@ -33,44 +33,45 @@
   <component name="GithubPullRequestsUISettings">{
   &quot;selectedUrlAndAccountId&quot;: {
     &quot;url&quot;: &quot;https://github.com/SilasKal/inceptionLoopProject.git&quot;,
-    &quot;accountId&quot;: &quot;79540366-c440-4850-82be-81634f272ccf&quot;
+    &quot;accountId&quot;: &quot;33f26482-fae3-4772-b8b5-cc1b174fcf13&quot;
   }
 }</component>
   <component name="ProjectColorInfo">{
   &quot;associatedIndex&quot;: 3
 }</component>
   <component name="ProjectId" id="2nQL9x8oTNmg1MvRn7qOz5hGLbT" />
-  <component name="ProjectLevelVcsManager" settingsEditedManually="true" />
+  <component name="ProjectLevelVcsManager" settingsEditedManually="true">
+    <ConfirmationsSetting value="1" id="Add" />
+  </component>
   <component name="ProjectViewState">
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
   <component name="PropertiesComponent"><![CDATA[{
   "keyToString": {
-    "ASKED_ADD_EXTERNAL_FILES": "true",
     "Python.data_loading.executor": "Run",
     "Python.model.executor": "Run",
     "RunOnceActivity.ShowReadmeOnStart": "true",
     "RunOnceActivity.git.unshallow": "true",
     "SHARE_PROJECT_CONFIGURATION_FILES": "true",
     "git-widget-placeholder": "main",
-    "last_opened_file_path": "/Users/silas/PycharmProjects/inceptionLoopProject/all_trials",
+    "ignore.virus.scanning.warn.message": "true",
+    "last_opened_file_path": "C:/Users/silas/OneDrive/Desktop",
     "node.js.detected.package.eslint": "true",
     "node.js.detected.package.tslint": "true",
     "node.js.selected.package.eslint": "(autodetect)",
     "node.js.selected.package.tslint": "(autodetect)",
     "nodejs_package_manager_path": "npm",
-    "settings.editor.selected.configurable": "preferences.keymap",
+    "settings.editor.selected.configurable": "com.obiscr.chatgpt.settings.EasyCodeSettings",
     "vue.rearranger.settings.migration": "true"
   }
 }]]></component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
-      <recent name="$PROJECT_DIR$/all_trials" />
-      <recent name="$PROJECT_DIR$/separate_trials" />
-      <recent name="$PROJECT_DIR$/one_pc_responses" />
-      <recent name="$PROJECT_DIR$" />
+      <recent name="C:\Users\silas\PycharmProjects\inceptionLoopProject" />
       <recent name="C:\Users\silas\PycharmProjects\inceptionLoopProject\Images" />
+      <recent name="$PROJECT_DIR$" />
+      <recent name="$PROJECT_DIR$/Max Code" />
     </key>
     <key name="MoveFile.RECENT_KEYS">
       <recent name="$PROJECT_DIR$" />
@@ -150,73 +151,26 @@
       <workItem from="1728909606012" duration="4385000" />
       <workItem from="1728991349714" duration="781000" />
       <workItem from="1728996504165" duration="6363000" />
-      <workItem from="1729719166151" duration="619000" />
-      <workItem from="1729767777862" duration="8189000" />
-      <workItem from="1729959232093" duration="139000" />
-      <workItem from="1730296108313" duration="6003000" />
-      <workItem from="1730302214782" duration="12188000" />
-      <workItem from="1730364121621" duration="20516000" />
-      <workItem from="1730969407300" duration="19089000" />
-      <workItem from="1731254274311" duration="4359000" />
-      <workItem from="1731258653435" duration="5558000" />
-      <workItem from="1731500498333" duration="49000" />
-      <workItem from="1731500571644" duration="8597000" />
-      <workItem from="1732111140723" duration="4206000" />
-      <workItem from="1732182739657" duration="10082000" />
-      <workItem from="1732216599649" duration="8701000" />
-      <workItem from="1733156479942" duration="6718000" />
-      <workItem from="1733590277738" duration="167000" />
-      <workItem from="1733590448809" duration="327000" />
-      <workItem from="1733758067118" duration="7366000" />
-      <workItem from="1733765867256" duration="523000" />
-      <workItem from="1734004870026" duration="3408000" />
-      <workItem from="1734012292755" duration="5823000" />
-      <workItem from="1734092904908" duration="10935000" />
-      <workItem from="1734289832329" duration="7787000" />
-      <workItem from="1734386171430" duration="4268000" />
-      <workItem from="1734512115344" duration="25198000" />
-      <workItem from="1735894924083" duration="11835000" />
-      <workItem from="1735907748510" duration="381000" />
-      <workItem from="1735908135955" duration="5000" />
-      <workItem from="1735908145554" duration="148000" />
-      <workItem from="1735908354812" duration="106000" />
-      <workItem from="1735908469928" duration="20000" />
-      <workItem from="1736158141269" duration="4393000" />
-      <workItem from="1736173532550" duration="2747000" />
+      <workItem from="1729459115037" duration="209000" />
+      <workItem from="1729459358295" duration="44000" />
+      <workItem from="1729459407416" duration="33000" />
+      <workItem from="1729520798185" duration="386000" />
+      <workItem from="1729521199345" duration="2122000" />
+      <workItem from="1729707738164" duration="4960000" />
+      <workItem from="1731091053725" duration="2407000" />
+      <workItem from="1736176849978" duration="48000" />
+      <workItem from="1736176966793" duration="8678000" />
+      <workItem from="1736252091415" duration="13084000" />
     </task>
-    <task id="LOCAL-00001" summary="reverse PCA added to data loading and model, updated model to take correct input sizes">
+    <task id="LOCAL-00001" summary="updated data_loading.py to load data with roi and updated model.py to support the loaded data">
       <option name="closed" value="true" />
-      <created>1730317205382</created>
+      <created>1729459175409</created>
       <option name="number" value="00001" />
       <option name="presentableId" value="LOCAL-00001" />
       <option name="project" value="LOCAL" />
-      <updated>1730317205382</updated>
+      <updated>1729459175409</updated>
     </task>
-    <task id="LOCAL-00002" summary="split in test and train, average responses over trials, r^2">
-      <option name="closed" value="true" />
-      <created>1730392753772</created>
-      <option name="number" value="00002" />
-      <option name="presentableId" value="LOCAL-00002" />
-      <option name="project" value="LOCAL" />
-      <updated>1730392753772</updated>
-    </task>
-    <task id="LOCAL-00003" summary="implemented training and testing for predicting pixels">
-      <option name="closed" value="true" />
-      <created>1733758113815</created>
-      <option name="number" value="00003" />
-      <option name="presentableId" value="LOCAL-00003" />
-      <option name="project" value="LOCAL" />
-      <updated>1733758113815</updated>
-    </task>
-    <task id="LOCAL-00004" summary="added get_most_exciting_stimuli">
-      <option name="closed" value="true" />
-      <created>1734094727276</created>
-      <option name="number" value="00004" />
-      <option name="presentableId" value="LOCAL-00004" />
-      <option name="project" value="LOCAL" />
-      <updated>1734094727276</updated>
-    </task>
-    <option name="localTasksCounter" value="5" />
+    <option name="localTasksCounter" value="2" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -236,14 +190,11 @@
   <component name="VcsManagerConfiguration">
     <MESSAGE value="loading data and initial model" />
     <MESSAGE value="small changes" />
-    <MESSAGE value="reverse PCA added to data loading and model, updated model to take correct input sizes" />
-    <MESSAGE value="split in test and train, average responses over trials, r^2" />
-    <MESSAGE value="implemented training and testing for predicting pixels" />
-    <MESSAGE value="added get_most_exciting_stimuli" />
-    <option name="LAST_COMMIT_MESSAGE" value="added get_most_exciting_stimuli" />
+    <MESSAGE value="updated data_loading.py to load data with roi and updated model.py to support the loaded data" />
+    <option name="LAST_COMMIT_MESSAGE" value="updated data_loading.py to load data with roi and updated model.py to support the loaded data" />
   </component>
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
-    <SUITE FILE_PATH="coverage/inceptionLoopProject$model.coverage" NAME="model Coverage Results" MODIFIED="1733764210899" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
-    <SUITE FILE_PATH="coverage/inceptionLoopProject$data_loading.coverage" NAME="data_loading Coverage Results" MODIFIED="1736175942029" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/inceptionLoopProject$model.coverage" NAME="model Coverage Results" MODIFIED="1731090163990" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/inceptionLoopProject$data_loading.coverage" NAME="data_loading Coverage Results" MODIFIED="1736268899885" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
   </component>
 </project>

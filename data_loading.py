@@ -1056,7 +1056,7 @@ def separate_trials(stims_param_filepath, roi_data_filepath, response_data_filep
 # r_squared = 1 - (ss_res / ss_tot)
 # print(r_squared, "INSGESAMT R^2")
 
-
+from model import train_save_model_full_images
 def pipeline_full_images(run_name, learning_rate, num_epochs ):
     directory_path = run_name
     os.makedirs(directory_path, exist_ok=True)
@@ -1075,11 +1075,20 @@ def pipeline_full_images(run_name, learning_rate, num_epochs ):
                                                         "F0255/tseries_15/response_array_1s_interval.npy")
     images = np.concatenate((images_12, images_13, images_14, images_15), axis=0)
     responses = np.concatenate((responses_12, responses_13, responses_14, responses_15), axis=0)
-    np.save(run_name + "/images.npy", images)
-    np.save(run_name + "/responses.npy", responses)
+    # np.save(run_name + "/images.npy", images)
+    # np.save(run_name + "/responses.npy", responses)
+    # images = np.load(run_name + "/images.npy")
+    # responses = np.load(run_name + "/responses.npy")
     print(15 * "-" + "Matching Images to Responses completed" + 15 * "-")
-    train_save_model_cross_full_images(images, responses, num_epochs, learning_rate,
-                           run_name + "/model" + "_" + str(num_epochs) + "_" +
-                           str(learning_rate), run_name + "/model_plot", None)
+    # one trial
+    # train_save_model_full_images(images_12, responses_12, num_epochs, learning_rate,
+    #                        run_name + "/model" + "_" + str(num_epochs) + "_" +
+    #                        str(learning_rate), run_name + "/model_plot", None)
 
-pipeline_full_images("full_images", 1e-3, 5)
+
+    # all trials
+    train_save_model_cross_full_images(images, responses, num_epochs, learning_rate,
+                                 run_name + "/model" + "_" + str(num_epochs) + "_" +
+                                 str(learning_rate), run_name + "/model_plot", None)
+
+pipeline_full_images("full_images_cross", 1e-3, 2)

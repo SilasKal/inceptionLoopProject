@@ -8,6 +8,33 @@ import numpy as np
 # Core CNN
 import torch
 import torch.nn as nn
+import torch
+import torch.nn as nn
+
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
+class ImageToResponseCNN(nn.Module):
+    def __init__(self):
+        super(ImageToResponseCNN, self).__init__()
+        self.conv1 = nn.Conv2d(1, 32, kernel_size=3, stride=1, padding=1)
+        self.conv2 = nn.Conv2d(32, 64, kernel_size=3, stride=1, padding=1)
+        self.conv3 = nn.Conv2d(64, 128, kernel_size=3, stride=1, padding=1)
+        self.pool = nn.MaxPool2d(kernel_size=2, stride=2, padding=0)
+        self.fc1 = nn.Linear(128 * 33 * 40, 1024)  # Adjusted for new input shape
+        self.fc2 = nn.Linear(1024, 270 * 320)
+        self.elu = nn.ELU()
+
+    def forward(self, x):
+        x = self.pool(F.elu(self.conv1(x)))
+        x = self.pool(F.elu(self.conv2(x)))
+        x = self.pool(F.elu(self.conv3(x)))
+        x = x.view(-1, 128 * 33 * 40)  # Adjusted for new input shape
+        x = self.elu(self.fc1(x))
+        x = self.fc2(x)
+        x = x.view(-1, 270, 320)
+        return x
 
 class PopulationCNN(nn.Module):
     def __init__(self, input_size, output_size):
@@ -953,8 +980,14 @@ def train_save_model_cross_full_images(images, responses, num_epochs, learning_r
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     print(f'Using device: {device}')
-    images = images.astype(np.float32)
+    print(f"{images.shape=}, {responses.shape=}")
+    # images = images.astype(np.float32)
     responses = responses.astype(np.float32)
+    # images = images.astype(np.float32).reshape(588, 1, 1920, 2560)
+    images = resize_images(images, (320, 270))
+    responses = np.nan_to_num(responses, nan=0.0)  # Replace NaN values with 0.0
+    images = images.astype(np.float32).reshape(-1, 1, images.shape[1], images.shape[2])
+    print(f"{images.shape=}, {responses.shape=}")
 
 
 
@@ -982,7 +1015,6 @@ def train_save_model_cross_full_images(images, responses, num_epochs, learning_r
     print(folds)
     fold = 0
 
-    plt.show()
     all_train_losses = []
     all_val_losses = []
     all_r_2_losses = []
@@ -990,36 +1022,23 @@ def train_save_model_cross_full_images(images, responses, num_epochs, learning_r
     overall_targets_train = []
     overall_model_outputs_val = []
     overall_targets_val = []
+
     for index in range(num_folds):
-        # print(train_index % 147, val_index % 147)
         val_index = folds[index]
         train_index = np.concatenate([folds[i] for i in range(num_folds) if i != index])
-        # print("VAL", val_index)
-        print(len(train_index), len(val_index))
-        print(len(set(train_index % 147) - set(val_index % 147)))
         fold += 1
         print(f"Fold {fold}")
-        # print("Max, Min", max(responses), min(responses))
         images_train, images_val = images[train_index], images[val_index]
         responses_train, responses_val = responses[train_index], responses[val_index]
-        print(f"{responses_train.shape=}")
-        print(f"{images_train.shape=}")
-        train_dataset = CustomImageDataset(num_images=images_train.shape[0], images=images_train,
-                                           targets=responses_train)
+        train_dataset = CustomImageDataset(num_images=images_train.shape[0], images=images_train, targets=responses_train)
         val_dataset = CustomImageDataset(num_images=images_val.shape[0], images=images_val, targets=responses_val)
-        train_dataloader = DataLoader(train_dataset, batch_size=10, shuffle=True, num_workers=0, pin_memory=True)
-        val_dataloader = DataLoader(val_dataset, batch_size=1, shuffle=True, num_workers=0, pin_memory=True)
+        train_dataloader = DataLoader(train_dataset, batch_size=1, shuffle=True)
+        val_dataloader = DataLoader(val_dataset, batch_size=1, shuffle=True)
 
-
-
-        # Deeper NN
-        model = PopulationCNN(input_size=images_train.shape[2], output_size=responses_train.shape[1])
-
+        model = ImageToResponseCNN()
         model.to(device)
 
-        # criterion = nn.L1Loss()
-        criterion = nn.MSELoss()
-        # criterion = MAPELoss()
+        criterion = nn.L1Loss()
         optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, weight_decay=10e-3)
         scaler = torch.cuda.amp.GradScaler()
 
@@ -1032,70 +1051,55 @@ def train_save_model_cross_full_images(images, responses, num_epochs, learning_r
             epoch_loss = 0.0
             progress_bar = tqdm(train_dataloader, desc=f"Epoch {epoch + 1}/{num_epochs}")
             for batch_idx, (inputs, targets) in enumerate(progress_bar):
-                inputs = inputs.to(device)
-                targets = targets.to(device)
-
-
+                inputs, targets = inputs.to(device), targets.to(device)
                 optimizer.zero_grad()
-                outputs = model(inputs)
-                loss = criterion(outputs, targets)
+                with torch.cuda.amp.autocast():
+                    outputs = model(inputs)
+                    loss = criterion(outputs, targets)
                 scaler.scale(loss).backward()
                 scaler.step(optimizer)
                 scaler.update()
                 epoch_loss += loss.item()
-                progress_bar.set_postfix(loss=loss.item())
-                if epoch == num_epochs - 1 and index == 0:
-                    # print("targets", targets.detach().cpu().numpy().squeeze().shape)
-                    overall_model_outputs_train.extend(outputs.detach().cpu().numpy().squeeze())
-                    overall_targets_train.extend(targets.detach().cpu().numpy().squeeze())
-            overall_targets_train_np = np.array(overall_targets_train)
-            overall_model_outputs_train_np = np.array(overall_model_outputs_train)
-            ss_res = np.sum((overall_targets_train_np.flatten() - overall_model_outputs_train_np.flatten()) ** 2)
-            ss_tot = np.sum((overall_targets_train_np - np.mean(overall_targets_train_np)) ** 2)
-            r_squared = 1 - (ss_res / ss_tot)
-            print(f"Overall R^2 for training last epoch: {r_squared:.4f}")
+                progress_bar.set_postfix(loss=epoch_loss / (batch_idx + 1))
+                del inputs, targets
+                torch.cuda.empty_cache()
             average_loss = epoch_loss / len(train_dataloader)
             train_losses.append(average_loss)
             print(f"Epoch [{epoch + 1}/{num_epochs}], Loss: {average_loss:.4f}")
 
             model.eval()
             val_loss = 0.0
-            all_targets_val = []
-            all_outputs_val = []
-            true_values_last_epoch = []
+            all_val_outputs = []
+            all_val_true = []
             with torch.no_grad():
                 for inputs, targets in val_dataloader:
-                    inputs = inputs.to(device)
-                    targets = targets.to(device)
+                    inputs, targets = inputs.to(device), targets.to(device)
                     outputs = model(inputs)
                     loss = criterion(outputs, targets)
                     val_loss += loss.item()
-                    all_outputs_val.append(outputs.cpu().numpy())
-                    all_targets_val.append(targets.cpu().numpy())
+                    all_val_outputs.append(outputs.cpu().numpy())
+                    all_val_true.append(targets.cpu().numpy())
                     if epoch == num_epochs - 1:
-                        overall_model_outputs_val.append(outputs.cpu().numpy().squeeze())
+                        overall_model_outputs_val.append(outputs.cpu().numpy())
                         overall_targets_val.append(targets.cpu().numpy())
-                        # print(overall_targets)
-                        # print(overall_model_outputs)
-                        # print("targets", targets.cpu().numpy()[0][0])
-                        # print("outputs", outputs.cpu().numpy()[0][0])
-            true_outputs = np.array(all_targets_val)
-            model_outputs = np.array(all_outputs_val)
+                    del inputs, targets
+                    torch.cuda.empty_cache()
+            average_val_loss = val_loss / len(val_dataloader)
+            val_losses.append(average_val_loss)
+            print(f"Validation Loss: {average_val_loss:.4f}")
+
+            true_outputs = np.array(all_val_true)
+            model_outputs = np.array(all_val_outputs)
             ss_res = np.sum((true_outputs.flatten() - model_outputs.flatten()) ** 2)
             ss_tot = np.sum((true_outputs - np.mean(true_outputs)) ** 2)
             r_squared = 1 - (ss_res / ss_tot)
-            print(f"Overall R^2 for validation images: {r_squared:.4f}")
             r_2_losses.append(r_squared)
-            val_loss /= len(val_dataloader)
-            val_losses.append(val_loss)
-            print(f"Validation Loss: {val_loss:.4f}")
+            print(f"Overall R^2 for validation images: {r_squared:.4f}")
 
         all_train_losses.append(train_losses)
         all_val_losses.append(val_losses)
         all_r_2_losses.append(r_2_losses)
-    # print(all_val_indexes)
-    # Plot the losses and R^2 scores for each fold
-    y_limit = (0, 20)  # Change this to your desired range
+
     plt.figure(figsize=(10, 6))
     for i in range(num_folds):
         plt.plot(all_train_losses[i], label=f'Training Loss Fold {i + 1}')
@@ -1143,62 +1147,211 @@ def train_save_model_cross_full_images(images, responses, num_epochs, learning_r
     plt.figure(figsize=(50, 6))
     # print(f"{np.array(overall_targets_val).shape=}, {np.array(overall_model_outputs_val).shape=}")
     print(f"{np.array(overall_targets_val).squeeze()[:, 0].shape=}, {np.array(overall_model_outputs_val)[:, 0].shape=}")
-    plt.plot(np.array(overall_targets_val).squeeze()[:, 0], np.array(overall_model_outputs_val)[:, 0], 'o',
-             color="blue", label="Pixel 0")
-    plt.plot(np.array(overall_targets_val).squeeze()[:, 1], np.array(overall_model_outputs_val)[:, 1], 'o',
-             color="red", label="Pixel 1")
-    plt.plot(np.array(overall_targets_val).squeeze()[:, 2], np.array(overall_model_outputs_val)[:, 2], 'o',
-             color="green", label="Pixel 2")
-    plt.plot(np.array(overall_targets_val).squeeze()[:, 3], np.array(overall_model_outputs_val)[:, 3], 'o',
-             color="purple", label="Pixel 3")
-    plt.plot(np.array(overall_targets_val).squeeze()[:, 4], np.array(overall_model_outputs_val)[:, 4], 'o',
-             color="yellow", label="Pixel 4")
-    # plt.plot(np.array(overall_targets_val).squeeze()[:, 5], np.array(overall_model_outputs_val)[:, 5], 'o',
-    #          color="black", label="Pixel 5")
-    plt.xlabel("True Value")
-    plt.ylabel("Predicted Value")
-    plt.title("True vs. Predicted Validation Samples")
-    plt.legend()
-    plt.savefig(plot_filepath + 'scatter_pixel_cross_validation.png')
+    num_samples_to_plot = 5  # Number of samples to plot
+    plt.figure(figsize=(15, 10))
+    print(f"{true_outputs[0].shape=}, {model_outputs[0].shape=}")
+    for i in range(num_samples_to_plot):
+        plt.subplot(2, num_samples_to_plot, i + 1)
+        plt.imshow(true_outputs[i].squeeze())
+        plt.title(f'True Sample Validation {i + 1}')
+
+        plt.subplot(2, num_samples_to_plot, i + 1 + num_samples_to_plot)
+        plt.imshow(model_outputs[i].squeeze())
+        plt.title(f'Predicted Sample Validation {i + 1}')
+    plt.tight_layout()
     plt.show()
-    # print(f"{np.array(overall_targets_train).shape=}, {np.array(overall_model_outputs_train).shape=}")
-    # print(f"{np.array(overall_targets_train).squeeze()[:, 0].shape=}, {np.array(overall_model_outputs_train)[:, 0].shape=}")
-    for i in range(2):
-        plt.figure(figsize=(10, 6))
-        plt.plot(np.array(overall_targets_train).squeeze()[:, i], np.array(overall_model_outputs_train)[:, i], 'o',
-                 label=f"Pixel {i}")
-        plt.xlabel("True Value")
-        plt.ylabel("Predicted Value")
-        plt.title(f"True vs. Predicted Training Samples for Pixel {i}")
-        plt.legend()
-        plt.savefig(plot_filepath + f'scatter_pixel_{i}_cross_training.png')
-        plt.show()
+    num_samples_to_plot = 5  # Number of samples to plot
+    plt.figure(figsize=(15, 10))
+    for i in range(num_samples_to_plot):
+        plt.subplot(2, num_samples_to_plot, i + 1)
+        plt.imshow(overall_targets_train[-(i + 1)].squeeze())
+        plt.title(f'True Sample Training {i + 1}')
 
-    # plt.figure(figsize=(50, 6))
-    # plt.plot(np.array(overall_targets_val).squeeze(),np.array(overall_model_outputs_val).squeeze(), 'o')
-    # plt.xlabel("True Value")
-    # plt.ylabel("Predicted Value")
-    # plt.title("True vs. Predicted Validation Samples")
-    # plt.legend()
-    # plt.savefig(plot_filepath + 'scatter_cross_validation.png')
-    # plt.show()
-
-    # plt.figure(figsize=(50, 6))
-    # plt.plot(overall_targets_train, overall_model_outputs_train, 'o')
-    # # plt.plot(x, model_outputs, 'o', label="Predicted Values", color="orange"
-    # plt.xlabel("True Value")
-    # plt.ylabel("Predicted Value")
-    # plt.title("True vs. Predicted Training Samples")
-    # plt.legend()
-    # plt.savefig(plot_filepath + 'scatter_cross_training.png')
-    # plt.show()
-    # plt.savefig(plot_filepath + 'scatter_cross_validation.png')
-
+        plt.subplot(2, num_samples_to_plot, i + 1 + num_samples_to_plot)
+        plt.imshow(overall_model_outputs_train[-(i + 1)].squeeze())
+        plt.title(f'Predicted Sample Training {i + 1}')
+    plt.tight_layout()
+    plt.show()
     torch.save(model.state_dict(), model_filepath + '_cross_validation.pth')
     # print(np.average(all_r_2_losses))
-    optimize_image(model, images_train.shape[1], responses_train.shape[1])
+    # optimize_image(model, images_train.shape[1], responses_train.shape[1])
+from PIL import Image
+def resize_images(images, new_size):
+    resized_images = []
+    for img in images:
+        pil_img = Image.fromarray(img)
+        pil_img = pil_img.resize(new_size)
+        resized_images.append(np.array(pil_img))
+    return np.array(resized_images)
 
+# Example usage:
 
+def train_save_model_full_images(images, responses, num_epochs, learning_rate, model_filepath, plot_filepath, model=None):
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+    print(f'Using device: {device}')
+    print(f"{images.shape=}, {responses.shape=}")
+    images = resize_images(images, (320, 270))
+    # images = images.astype(np.float32)
+    responses = responses.astype(np.float32)
+    # plt.imshow(images[0])
+    # plt.show()
+    responses = np.nan_to_num(responses, nan=0.0)  # Replace NaN values with 0.0
+    images = images.astype(np.float32).reshape(-1, 1, images.shape[1], images.shape[2])
+    print(f"{images.shape=}, {responses.shape=}")
+
+    images_train, images_val, responses_train, responses_val = (
+         train_test_split(images, responses, test_size=0.1, random_state=42))
+    train_dataset = CustomImageDataset(num_images=images_train.shape[0], images=images_train,
+                                       targets=responses_train)
+    val_dataset = CustomImageDataset(num_images=images_val.shape[0], images=images_val, targets=responses_val)
+    train_dataloader = DataLoader(train_dataset, batch_size=10, shuffle=True)
+    val_dataloader = DataLoader(val_dataset, batch_size=1, shuffle=True)
+
+    # Deeper NN
+    model = ImageToResponseCNN()
+
+    model.to(device)
+
+    criterion = nn.L1Loss()
+    # criterion = nn.MSELoss()
+    #  criterion = MAPELoss()
+    # citerion = nn.MAE()
+    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, weight_decay=10e-3)
+    scaler = torch.cuda.amp.GradScaler()
+
+    train_losses = []
+    val_losses = []
+    r_2_losses = []
+    overall_model_outputs_train = []
+    overall_targets_train = []
+    overall_model_outputs_val = []
+    overall_targets_val = []
+
+    for epoch in range(num_epochs):
+        model.train()
+        epoch_loss = 0.0
+        progress_bar = tqdm(train_dataloader, desc=f"Epoch {epoch + 1}/{num_epochs}")
+        for batch_idx, (inputs, targets) in enumerate(progress_bar):
+            inputs, targets = inputs.to(device), targets.to(device)
+            optimizer.zero_grad()
+            with torch.cuda.amp.autocast():
+                outputs = model(inputs)
+                loss = criterion(outputs, targets)
+            scaler.scale(loss).backward()
+            scaler.step(optimizer)
+            scaler.update()
+            epoch_loss += loss.item()
+            progress_bar.set_postfix(loss=epoch_loss / (batch_idx + 1))
+            overall_targets_train.extend(targets.cpu().detach().numpy())
+            overall_model_outputs_train.extend(outputs.cpu().detach().numpy())
+            # del inputs, targets
+            # torch.cuda.empty_cache()
+            print(loss.item())
+        average_loss = epoch_loss / len(train_dataloader)
+        train_losses.append(average_loss)
+        print(f"Epoch [{epoch + 1}/{num_epochs}], Loss: {average_loss:.4f}")
+
+        model.eval()
+        val_loss = 0.0
+        all_outputs = []
+        all_true_outputs = []
+        with torch.no_grad():
+            for inputs, targets in val_dataloader:
+                inputs, targets = inputs.to(device), targets.to(device)
+                outputs = model(inputs)
+                loss = criterion(outputs, targets)
+                val_loss += loss.item()
+                all_outputs.append(outputs.cpu().numpy())
+                all_true_outputs.append(targets.cpu().numpy())
+                del inputs, targets
+                torch.cuda.empty_cache()
+        average_val_loss = val_loss / len(val_dataloader)
+        val_losses.append(average_val_loss)
+        print(f"Validation Loss: {average_val_loss:.4f}")
+
+        true_outputs = np.array(all_true_outputs)
+        model_outputs = np.array(all_outputs)
+        ss_res = np.sum((true_outputs.flatten() - model_outputs.flatten()) ** 2)
+        ss_tot = np.sum((true_outputs - np.mean(true_outputs)) ** 2)
+        r_squared = 1 - (ss_res / ss_tot)
+        r_2_losses.append(r_squared)
+        print(f"Overall R^2 for validation images: {r_squared:.4f}")
+
+        if epoch == num_epochs - 1:
+            overall_model_outputs_val.extend(model_outputs)
+            overall_targets_val.extend(true_outputs)
+    true_outputs_temp = np.array(overall_targets_train)
+    model_outputs_temp = np.array(overall_model_outputs_train)
+    ss_res = np.sum((true_outputs_temp.flatten() - model_outputs_temp.flatten()) ** 2)
+    ss_tot = np.sum((true_outputs_temp - np.mean(true_outputs_temp)) ** 2)
+    r_squared = 1 - (ss_res / ss_tot)
+    print(f"Overall R^2 for training last epoch: {r_squared:.4f}")
+    # Plot the losses and R^2 scores
+    plt.figure(figsize=(10, 6))
+    plt.plot(train_losses, label='Training Loss')
+    plt.xlabel('Epoch')
+    plt.ylabel('Loss')
+    plt.title('Training Loss per Epoch')
+    plt.legend()
+    plt.savefig(plot_filepath + 'training_loss.png')
+    plt.show()
+
+    plt.figure(figsize=(10, 6))
+    plt.plot(val_losses, label='Validation Loss')
+    plt.xlabel('Epoch')
+    plt.ylabel('Loss')
+    plt.title('Validation Loss per Epoch')
+    plt.legend()
+    plt.savefig(plot_filepath + 'validation_loss.png')
+    plt.show()
+
+    plt.figure(figsize=(10, 6))
+    plt.plot(r_2_losses, label='R^2')
+    plt.xlabel('Epoch')
+    plt.ylabel('R^2')
+    plt.title('R^2 per Epoch')
+    plt.legend()
+    plt.savefig(plot_filepath + 'r2_per_epoch.png')
+    plt.show()
+
+    print(f"Min Validation Loss: {min(val_losses)}, Max R^2: {max(r_2_losses)}")
+
+    true_outputs = np.array(overall_targets_val)
+    model_outputs = np.array(overall_model_outputs_val)
+    ss_res = np.sum((true_outputs.flatten() - model_outputs.flatten()) ** 2)
+    ss_tot = np.sum((true_outputs - np.mean(true_outputs)) ** 2)
+    r_squared = 1 - (ss_res / ss_tot)
+    print(f"Overall R^2 for cross validation last epoch: {r_squared:.4f}")
+
+    num_samples_to_plot = 5  # Number of samples to plot
+    plt.figure(figsize=(15, 10))
+    print(f"{true_outputs[0].shape=}, {model_outputs[0].shape=}")
+    for i in range(num_samples_to_plot):
+        plt.subplot(2, num_samples_to_plot, i + 1)
+        plt.imshow(true_outputs[i].squeeze())
+        plt.title(f'True Sample Validation {i + 1}')
+
+        plt.subplot(2, num_samples_to_plot, i + 1 + num_samples_to_plot)
+        plt.imshow(model_outputs[i].squeeze())
+        plt.title(f'Predicted Sample Validation {i + 1}')
+    plt.tight_layout()
+    plt.show()
+    num_samples_to_plot = 5 # Number of samples to plot
+    plt.figure(figsize=(15, 10))
+    for i in range(num_samples_to_plot):
+        plt.subplot(2, num_samples_to_plot, i + 1)
+        plt.imshow(overall_targets_train[-(i + 1)].squeeze())
+        plt.title(f'True Sample Training {i + 1}')
+
+        plt.subplot(2, num_samples_to_plot, i + 1 + num_samples_to_plot)
+        plt.imshow(overall_model_outputs_train[-(i + 1)].squeeze())
+        plt.title(f'Predicted Sample Training {i + 1}')
+    plt.tight_layout()
+    plt.show()
+    torch.save(model.state_dict(), model_filepath + '_cross_validation.pth')
+    # print(np.average(all_r_2_losses))
+    # optimize_image(model, images_train.shape[1], responses_train.shape[1])
 
 
 
