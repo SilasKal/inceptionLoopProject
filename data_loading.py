@@ -1,3 +1,5 @@
+import random
+
 from PIL import Image
 from sklearn.decomposition import PCA
 from sklearn.model_selection import train_test_split
@@ -957,9 +959,9 @@ def pipeline(stims_param_filepath, roi_data_filepath, response_data_filepath, ru
 #          147, 1e-3, 50,  [125,  51, 138,  19, 104,  12,  76,  31,  81,   9 , 26 , 96, 143 , 67 ,134])
 # all trials !!
 # with cross validation
-# pipeline("F0255/tseries_12/stimparams.dict", "F0255/1_roi_morphed.npy",
-#          "F0255/avg_responses_12_13_14_15_F0255.npy", "all_trials", 50,
-#           147, 1e-5, 250,  list(range(147)))
+pipeline("F0255/tseries_12/stimparams.dict", "F0255/1_roi_morphed.npy",
+         "F0255/avg_responses_12_13_14_15_F0255.npy", "all_trials", 50,
+          147, 1e-5, 250,  list(range(147)))
 
 def separate_trials(stims_param_filepath, roi_data_filepath, response_data_filepath, run_name, n_components_responses,
              n_components_images, learning_rate, num_epochs, test_indices):
@@ -1091,4 +1093,65 @@ def pipeline_full_images(run_name, learning_rate, num_epochs ):
                                  run_name + "/model" + "_" + str(num_epochs) + "_" +
                                  str(learning_rate), run_name + "/model_plot", None)
 
-pipeline_full_images("full_images_cross", 1e-3, 2)
+# pipeline_full_images("full_images_cross", 1e-3, 2)
+
+
+
+def plot_correlation():
+    _, _, responses_12 = match_pictures_with_response("F0255/tseries_12/stimparams.dict",
+                                                        "F0255/1_roi_morphed.npy",
+                                                        "F0255/tseries_12/response_array_1s_interval.npy")
+    _,_ , responses_13 = match_pictures_with_response("F0255/tseries_13/stimparams.dict",
+                                                        "F0255/1_roi_morphed.npy",
+                                                        "F0255/tseries_13/response_array_1s_interval.npy")
+    _, _, responses_14 = match_pictures_with_response("F0255/tseries_14/stimparams.dict",
+                                                        "F0255/1_roi_morphed.npy",
+                                                        "F0255/tseries_14/response_array_1s_interval.npy")
+    _, _, responses_15 = match_pictures_with_response("F0255/tseries_15/stimparams.dict",
+                                                        "F0255/1_roi_morphed.npy",
+                                                        "F0255/tseries_15/response_array_1s_interval.npy")
+    roi_mask = np.load("F0255/1_roi_morphed.npy")
+    responses_12 = np.array(responses_12).reshape(responses_12.shape[0], -1)[:, roi_mask.flatten()]
+    responses_13 = np.array(responses_13).reshape(responses_13.shape[0], -1)[:, roi_mask.flatten()]
+    responses_14 = np.array(responses_14).reshape(responses_14.shape[0], -1)[:, roi_mask.flatten()]
+    responses_15 = np.array(responses_15).reshape(responses_15.shape[0], -1)[:, roi_mask.flatten()]
+    # Combine all trials
+    responses = np.concatenate([responses_12, responses_13, responses_14, responses_15], axis=0)  # Shape: (588, 270, 320)
+    # responses = np.nan_to_num(responses, nan=0.0)  # Replace NaN values with 0.0
+
+
+    # Compute correlation matrices
+    trial_correlation = np.corrcoef(responses)  # Trial-to-trial correlation (588x588)
+    # Define the trial segments
+    n_trials_per_set = 147
+    n_sets = 4
+    segment_positions = [n_trials_per_set * i for i in range(1, n_sets)]  # [147, 294, 441]
+
+    # Plot the Trial Correlation Matrix
+    fig, ax = plt.subplots(figsize=(20, 16), dpi=300)  # Increase figure size and DPI for higher quality
+    im = ax.imshow(trial_correlation, cmap='coolwarm')
+
+    # Add black gridlines
+    for pos in segment_positions:
+        ax.axhline(pos - 0.5, color='black', linestyle='--', linewidth=1)  # Horizontal lines
+        ax.axvline(pos - 0.5, color='black', linestyle='--', linewidth=1)  # Vertical lines
+
+    # Set custom ticks and labels for 1-4
+    tick_positions = [n_trials_per_set * i - n_trials_per_set / 2 for i in
+                      range(1, n_sets + 1)]  # Midpoints of segments
+    ax.set_xticks(tick_positions)
+    ax.set_xticklabels(range(1, n_sets + 1))
+    ax.set_yticks(tick_positions)
+    ax.set_yticklabels(range(1, n_sets + 1))
+
+    # Set labels and colorbar
+    # ax.set_title('Trial Correlation Matrix', fontsize=16)
+    ax.set_xlabel('Trials', fontsize=14)
+    ax.set_ylabel('Trials', fontsize=14)
+    plt.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
+
+    plt.tight_layout()
+    plt.savefig("trial_correlation_matrix.png")
+    plt.show()
+
+# plot_correlation()

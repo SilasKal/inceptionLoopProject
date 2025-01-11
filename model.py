@@ -693,39 +693,30 @@ def train_save_model_cross(images, responses, num_epochs, learning_rate, model_f
     # print(all_val_indexes)
     # Plot the losses and R^2 scores for each fold
     y_limit = (0, 20)  # Change this to your desired range
+
     plt.figure(figsize=(10, 6))
-    for i in range(num_folds):
-        plt.plot(all_train_losses[i], label=f'Training Loss Fold {i+1}')
-        # plt.plot(all_val_losses[i], label=f'Validation Loss Fold {i+1}')
-        # plt.plot(all_r_2_losses[i], label=f'R^2 Loss Fold {i+1}')
-    plt.xlabel('Epoch')
-    plt.ylabel('Loss')
-    plt.title('Training Loss per Epoch')
-    # plt.ylim(y_limit)
-    plt.legend()
-    plt.savefig(plot_filepath + 'training_cross_validation.png')
+    average_train_losses = np.mean(all_train_losses, axis=0)
+    std_train_losses = np.std(all_train_losses, axis=0)
+    average_val_losses = np.mean(all_val_losses, axis=0)
+    std_val_losses = np.std(all_val_losses, axis=0)
+    plt.plot(average_train_losses, label='Average Training Loss')
+    plt.fill_between(range(len(average_train_losses)), average_train_losses - std_train_losses, average_train_losses + std_train_losses, alpha=0.2, label='Training Standard Deviation')
+    plt.plot(average_val_losses, label='Average Validation Loss')
+    plt.fill_between(range(len(average_val_losses)), average_val_losses - std_val_losses, average_val_losses + std_val_losses, alpha=0.2, label='Validation Standard Deviation')
+    plt.xlabel('Epoch', fontsize=14)
+    plt.ylabel('Loss', fontsize=14)
+    plt.legend(loc='upper right', alpha=0.8)
+    plt.savefig(plot_filepath + 'training_validation_loss.png')
     plt.show()
     plt.figure(figsize=(10, 6))
-    for i in range(num_folds):
-        # plt.plot(all_train_losses[i], label=f'Training Loss Fold {i + 1}')
-        plt.plot(all_val_losses[i], label=f'Validation Loss Fold {i+1}')
-        # plt.plot(all_r_2_losses[i], label=f'R^2 Loss Fold {i+1}')
+    average_r2_losses = np.mean(all_r_2_losses, axis=0)
+    std_r2_losses = np.std(all_r_2_losses, axis=0)
+    plt.plot(average_r2_losses, label='Average R^2 Validation')
+    plt.fill_between(range(len(average_r2_losses)), average_r2_losses - std_r2_losses, average_r2_losses + std_r2_losses, alpha=0.2, label='R^2 Standard Deviation')
     plt.xlabel('Epoch')
-    plt.ylabel('Loss')
-    plt.title('Validation Loss per Epoch')
-    # plt.ylim(y_limit)
-    plt.legend()
-    plt.savefig(plot_filepath + 'validation_cross_validation.png')
-    plt.show()
-    plt.figure(figsize=(10, 6))
-    for i in range(num_folds):
-        # plt.plot(all_train_losses[i], label=f'Training Loss Fold {i + 1}')
-        # plt.plot(all_val_losses[i], label=f'Validation Loss Fold {i + 1}')
-        plt.plot(all_r_2_losses[i], label=f'R^2 Loss Fold {i+1}')
-    plt.xlabel('Epoch')
-    plt.ylabel('Loss')
-    plt.title('R^2')
-    plt.legend()
+    plt.ylabel('R^2')
+    # plt.title('Average R^2 with Standard Deviation')
+    plt.legend(loc="upper right", alpha=0.8)
     plt.savefig(plot_filepath + 'validation_r2_cross_validation.png')
     plt.show()
     for i in range(num_folds):
@@ -793,7 +784,7 @@ def train_save_model_cross(images, responses, num_epochs, learning_rate, model_f
 
     torch.save(model.state_dict(), model_filepath + '_cross_validation.pth')
     # print(np.average(all_r_2_losses))
-    optimize_image(model, images_train.shape[1], responses_train.shape[1])
+    # optimize_image(model, images_train.shape[2], responses_train.shape[1])
 from sklearn.linear_model import LinearRegression, Ridge, Lasso
 from sklearn.svm import SVR
 from sklearn.ensemble import RandomForestRegressor
