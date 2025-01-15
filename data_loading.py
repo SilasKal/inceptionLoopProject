@@ -264,22 +264,34 @@ def apply_pca(data, n_components, response_data=None, mask=None, pca_vector=None
         plt.show()
     if response_data:
         # print(reconstructed_data.shape)
-        # reshaped_responses = np.zeros((147, 270 * 320))
-        reshaped_responses = np.zeros((588, 270 * 320))
+        reshaped_responses = np.zeros((147, 270 * 320))
+        # reshaped_responses = np.zeros((588, 270 * 320))
         reshaped_responses[:, mask.flatten()] = reconstructed_data
-        # reconstructed_responses = reshaped_responses.reshape(147, 270, 320)
-        reconstructed_responses = reshaped_responses.reshape(588, 270, 320)
+        reconstructed_responses = reshaped_responses.reshape(147, 270, 320)
+        # reconstructed_responses = reshaped_responses.reshape(588, 270, 320)
         reconstructed_responses[:, np.logical_not(mask)] = np.nan
-        num_responses_to_plot = 10  # Number of responses you want to plot
-        fig, axes = plt.subplots(1, num_responses_to_plot, figsize=(15, 5))
-        for i in range(num_responses_to_plot):
-            ax = axes[i]
+        original_responses = np.zeros((147, 270 * 320))
+        # original_responses = np.zeros((588, 270 * 320))
+        original_responses[:] = np.nan
+        original_data = scaler.inverse_transform(data)
+        original_responses[:, mask.flatten()] = original_data
+        # original_responses = original_responses.reshape(588, 270, 320)
+        original_responses = original_responses.reshape(147, 270, 320)
+        fig, axes = plt.subplots(2, 5, figsize=(15, 5))  # Show only 5 responses and originals
+        for i in range(5):
+            ax = axes[0, i]
             ax.imshow(reconstructed_responses[i])
-            ax.set_title(f"Response {i + 1}")
+            ax.set_title(f"Reconstructed {i + 1}")
             ax.axis('off')  # Hide the axis
-        plt.colorbar(axes[0].images[0], ax=axes, orientation='vertical', fraction=.1)
-        plt.suptitle("Reconstructed Responses After PCA")
-        plt.savefig("reconstructed_responses.png")
+
+            ax = axes[1, i]
+            ax.imshow(original_responses[i])
+            ax.set_title(f"Original {i + 1}")
+            ax.axis('off')  # Hide the axis
+
+        plt.subplots_adjust(hspace=0.1)  # Adjust the space between plots
+        plt.suptitle("Reconstructed and Original Responses After PCA")
+        plt.savefig("reconstructed_and_original_responses" + str(n_components) + ".png")
         plt.show()
         pk.dump(pca, open(pca_filepath, "wb"))
         pk.dump(scaler, open(scaler_filepath, "wb"))
@@ -287,8 +299,23 @@ def apply_pca(data, n_components, response_data=None, mask=None, pca_vector=None
         reconstructed_images = reconstructed_data.reshape(147, 1920, 2560)
         # reconstructed_images = reconstructed_data.reshape(588, 1920, 2560)
         print(reconstructed_images.shape)
-        plt.imshow(reconstructed_images[0])
-        plt.title("Reconstructed Image(input) After PCA")
+        original_data = scaler.inverse_transform(data)
+        original_images = original_data.reshape(147, 1920, 2560)
+
+        fig, axes = plt.subplots(2, 5, figsize=(20, 8))
+
+        # Plot the reconstructed images
+        for i in range(5):
+            axes[0, i].imshow(reconstructed_images[i], cmap='gray', vmin=0, vmax=255)
+            axes[0, i].set_title(f"Reconstructed Image {i + 1} After PCA")
+
+        # Plot the original images
+        for i in range(5):
+            axes[1, i].imshow(original_images[i], cmap='gray', vmin=0, vmax=255)
+            axes[1, i].set_title(f"Original Image {i + 1}")
+
+        plt.tight_layout()
+        plt.savefig("reconstructed_and_original_images" + str(n_components) + ".png")
         plt.show()
         pk.dump(pca, open(pca_filepath, "wb"))
         pk.dump(scaler, open(scaler_filepath, "wb"))
@@ -396,7 +423,7 @@ def test_model(model_name, input_image, true_output, pca_name_response, scaler_n
     return output_image, true_output, loss_test_image,r_2[0], r_squared
 
 
-from model import PopulationCNN, train_save_model_cross_full_images
+from model import PopulationCNN, train_save_model_cross_full_images, train_save_model_one_trial
 # responses_pca = np.load("responses_F0255_25_pca.npy")
 # images_pca = np.load("images_F0255_147_pca.npy")
 
@@ -658,42 +685,67 @@ def find_pixels_with_most_and_least_variance(num_of_pixels=1, threshold=1e-4):
     return filtered_pixels, values, responses_12
 
 # combined both approaches for pixels
-# _, values, _ = find_pixels_with_most_and_least_variance(num_of_pixels=1000, threshold=10e-4)
+# _, values, _ = find_pixels_with_most_and_least_variance(num_of_pixels=500, threshold=10e-4)
 
 
-def get_pixels_with_min_var_above_threshold(threshold=1e-4, num_pixels=500):
-    _, _, responses_12 = match_pictures_with_response("F0255/tseries_12/stimparams.dict", "F0255/1_roi_morphed.npy",
-                                                      "F0255/tseries_12/response_array_1s_interval.npy")
-    _, _, responses_13 = match_pictures_with_response("F0255/tseries_13/stimparams.dict", "F0255/1_roi_morphed.npy",
-                                                      "F0255/tseries_13/response_array_1s_interval.npy")
-    _, _, responses_14 = match_pictures_with_response("F0255/tseries_14/stimparams.dict", "F0255/1_roi_morphed.npy",
-                                                      "F0255/tseries_14/response_array_1s_interval.npy")
-    _, _, responses_15 = match_pictures_with_response("F0255/tseries_15/stimparams.dict", "F0255/1_roi_morphed.npy",
-                                                      "F0255/tseries_15/response_array_1s_interval.npy")
+def get_pixels_with_min_var_above_threshold(threshold=1e-4, num_pixels=500, one_trial=False):
+    if one_trial:
+        _, _, responses_12 = match_pictures_with_response("F0255/tseries_12/stimparams.dict", "F0255/1_roi_morphed.npy",
+                                                         "F0255/tseries_12/response_array_1s_interval.npy")
+        variance = np.nanvar(responses_12, axis=0)
+        valid_variance_pixels = np.argwhere(variance > threshold)
+        print(f"Number of pixels with variance above the threshold: {len(valid_variance_pixels)}")
+        print(f"Variance threshold: {threshold}")
 
-    variance = np.nanvar([responses_12, responses_13, responses_14, responses_15], axis=0)
-    valid_variance_pixels = np.argwhere(variance > threshold)
-    print(f"Number of pixels with variance above the threshold: {len(valid_variance_pixels)}")
-    print(f"Variance threshold: {threshold}")
+        if len(valid_variance_pixels) == 0:
+            print("No pixels found with variance above the threshold.")
+            return None, responses_12
 
-    if len(valid_variance_pixels) == 0:
-        print("No pixels found with variance above the threshold.")
-        return None, [responses_12, responses_13, responses_14, responses_15]
+        sorted_indices = np.argsort(variance[tuple(zip(*valid_variance_pixels))])
+        min_variance_pixels = valid_variance_pixels[sorted_indices[:num_pixels]]
+        # print(f"Minimum variance pixels: {min_variance_pixels}, Variances: {variance[tuple(zip(*min_variance_pixels))]}")
+        plt.imshow(variance)
+        plt.title(f"lowest variance pixels threshold {threshold}, num pixels {num_pixels}")
+        plt.colorbar()
+        for pixel in min_variance_pixels:
+            plt.plot(pixel[1], pixel[0], 'ro')
+        plt.show()
+        # print(f"{min_variance_pixels=}")
 
-    sorted_indices = np.argsort(variance[tuple(zip(*valid_variance_pixels))])
-    min_variance_pixels = valid_variance_pixels[sorted_indices[:num_pixels]]
-    # print(f"Minimum variance pixels: {min_variance_pixels}, Variances: {variance[tuple(zip(*min_variance_pixels))]}")
-    min_variance_pixels_coordinates = [(row, col) for _, row, col in min_variance_pixels]
-    print(f"Minimum variance pixels coordinates: {min_variance_pixels_coordinates}")
-    plt.imshow(variance[0])
-    plt.title(f"lowest variance pixels threshold {threshold}, num pixels {num_pixels}")
-    plt.colorbar()
-    for pixel in min_variance_pixels:
-        plt.plot(pixel[2], pixel[1], 'ro')
-    plt.show()
-    # print(f"{min_variance_pixels=}")
+        return min_variance_pixels, responses_12
+    else:
+        _, _, responses_12 = match_pictures_with_response("F0255/tseries_12/stimparams.dict", "F0255/1_roi_morphed.npy",
+                                                          "F0255/tseries_12/response_array_1s_interval.npy")
+        _, _, responses_13 = match_pictures_with_response("F0255/tseries_13/stimparams.dict", "F0255/1_roi_morphed.npy",
+                                                          "F0255/tseries_13/response_array_1s_interval.npy")
+        _, _, responses_14 = match_pictures_with_response("F0255/tseries_14/stimparams.dict", "F0255/1_roi_morphed.npy",
+                                                          "F0255/tseries_14/response_array_1s_interval.npy")
+        _, _, responses_15 = match_pictures_with_response("F0255/tseries_15/stimparams.dict", "F0255/1_roi_morphed.npy",
+                                                          "F0255/tseries_15/response_array_1s_interval.npy")
 
-    return min_variance_pixels_coordinates, [responses_12, responses_13, responses_14, responses_15]
+        variance = np.nanvar([responses_12, responses_13, responses_14, responses_15], axis=0)
+        valid_variance_pixels = np.argwhere(variance > threshold)
+        print(f"Number of pixels with variance above the threshold: {len(valid_variance_pixels)}")
+        print(f"Variance threshold: {threshold}")
+
+        if len(valid_variance_pixels) == 0:
+            print("No pixels found with variance above the threshold.")
+            return None, [responses_12, responses_13, responses_14, responses_15]
+
+        sorted_indices = np.argsort(variance[tuple(zip(*valid_variance_pixels))])
+        min_variance_pixels = valid_variance_pixels[sorted_indices[:num_pixels]]
+        # print(f"Minimum variance pixels: {min_variance_pixels}, Variances: {variance[tuple(zip(*min_variance_pixels))]}")
+        min_variance_pixels_coordinates = [(row, col) for _, row, col in min_variance_pixels]
+        print(f"Minimum variance pixels coordinates: {min_variance_pixels_coordinates}")
+        plt.imshow(variance[0])
+        plt.title(f"lowest variance pixels threshold {threshold}, num pixels {num_pixels}")
+        plt.colorbar()
+        for pixel in min_variance_pixels:
+            plt.plot(pixel[2], pixel[1], 'ro')
+        plt.show()
+        # print(f"{min_variance_pixels=}")
+
+        return min_variance_pixels_coordinates, [responses_12, responses_13, responses_14, responses_15]
 def get_pixel_value(responses, pixels):
     values = np.array([responses[:, row, col] for row, col in pixels])
     values = values.T
@@ -718,23 +770,20 @@ def get_pixels_all_responses(responses_all_trials, pixels):
     print(f"{all_values.shape=}")
     return all_values
 
-# common_pixels, responses = get_pixel_with_most_variance(num_of_pixels=3) # 101 common
 
-# common_pixels,values, responses = get_pixel_with_most_variance(500, True)
+# most variance 1 Trial
+# common_pixels,values, responses = get_pixel_with_most_variance(27098, True)
+# most variance all trials
 # common_pixels, responses = get_pixel_with_most_variance(num_of_pixels=3) # 1 common
 # common_pixels, responses = get_pixel_with_most_variance(num_of_pixels=140) # 70
 # print(f"{len(common_pixels)=}")
 # responses_pixels = get_pixels_all_responses(responses, common_pixels)
-# low_variance_pixels, responses = get_pixels_with_min_var_above_threshold(10**-4, 250)
+
+# low variance 1 Trial
+# low_variance_pixels, responses = get_pixels_with_min_var_above_threshold(10**-4, 250, True)
 # low_variance_pixels, responses = get_pixels_with_min_var_above_threshold(10**-5, 50)
-# responses_pixels = get_pixels_all_responses(responses, low_variance_pixels)
+# values = get_pixel_value_standardized(responses, low_variance_pixels)
 
-from imblearn.over_sampling import RandomOverSampler
-
-import numpy as np
-from imblearn.over_sampling import RandomOverSampler
-
-import numpy as np
 from imblearn.over_sampling import RandomOverSampler
 
 from collections import Counter
@@ -869,17 +918,18 @@ def get_most_exciting_stimuli(search_pixels=None):
     plt.show()
 
 # get_most_exciting_stimuli(common_pixels)
-
-# pipeline_pixels(responses_pixels, np.load("all_trials/images_pca_vectors_147.npy"), 5, 10e-3, "pixels")
+# get_most_exciting_stimuli(low_variance_pixels)
+# pipeline_pixels(responses_pixels, np.load("all_trials/images_pca_vectors_147.npy"), 500, 10e-3, "pixels")
 # pipeline_pixels(responses_pixels, np.load("all_trials/images_pca_vectors_147.npy"), 15, 10e-5, "pixels")
 # pipeline_pixels(responses_pixels, np.load("all_trials/images_pca_vectors_147.npy"), 150, 10e-5, "pixels")
 # 1e-5
 
 
 # one Trial, pixels
+# values = get_pixel_value_standardized(responses, common_pixels)
 # images_pca_one_trial = np.load("all_trials/images_pca_vectors_147.npy")[0:147]
 # print(f"{images_pca_one_trial.shape=}")
-# pipeline_pixels(values, images_pca_one_trial, 25, 1e-5, "pixels_combined")
+# pipeline_pixels(values, images_pca_one_trial, 500, 1e-5, "pixels_high_variance")
 
 # pipeline_pixels(responses_pixels, np.load("all_trials/images_pca_vectors_147.npy"), 25, 10e-5, "pixels_low_variance")
 
@@ -893,18 +943,18 @@ def pipeline(stims_param_filepath, roi_data_filepath, response_data_filepath, ru
     os.makedirs(directory_path, exist_ok=True)
     # match images with responses and apply filter + high low normalize
     # _, images, responses = match_pictures_with_response(stims_param_filepath, roi_data_filepath, response_data_filepath)
-    # _, images_12, responses_12 = match_pictures_with_response("F0255/tseries_12/stimparams.dict",
-    #                                                     "F0255/1_roi_morphed.npy",
-    #                                                     "F0255/tseries_12/response_array_1s_interval.npy")
-    # _, images_13, responses_13 = match_pictures_with_response("F0255/tseries_13/stimparams.dict",
-    #                                                     "F0255/1_roi_morphed.npy",
-    #                                                     "F0255/tseries_13/response_array_1s_interval.npy")
-    # _, images_14, responses_14 = match_pictures_with_response("F0255/tseries_14/stimparams.dict",
-    #                                                     "F0255/1_roi_morphed.npy",
-    #                                                     "F0255/tseries_14/response_array_1s_interval.npy")
-    # _, images_15, responses_15 = match_pictures_with_response("F0255/tseries_15/stimparams.dict",
-    #                                                     "F0255/1_roi_morphed.npy",
-    #                                                     "F0255/tseries_15/response_array_1s_interval.npy")
+    _, images_12, responses_12 = match_pictures_with_response("F0255/tseries_12/stimparams.dict",
+                                                        "F0255/1_roi_morphed.npy",
+                                                        "F0255/tseries_12/response_array_1s_interval.npy")
+    _, images_13, responses_13 = match_pictures_with_response("F0255/tseries_13/stimparams.dict",
+                                                        "F0255/1_roi_morphed.npy",
+                                                        "F0255/tseries_13/response_array_1s_interval.npy")
+    _, images_14, responses_14 = match_pictures_with_response("F0255/tseries_14/stimparams.dict",
+                                                        "F0255/1_roi_morphed.npy",
+                                                        "F0255/tseries_14/response_array_1s_interval.npy")
+    _, images_15, responses_15 = match_pictures_with_response("F0255/tseries_15/stimparams.dict",
+                                                        "F0255/1_roi_morphed.npy",
+                                                        "F0255/tseries_15/response_array_1s_interval.npy")
     # images = np.concatenate((images_12, images_13, images_14, images_15), axis=0)
     # responses = np.concatenate((responses_12, responses_13, responses_14, responses_15), axis=0)
     # np.save(run_name + "/images.npy", images)
@@ -912,34 +962,39 @@ def pipeline(stims_param_filepath, roi_data_filepath, response_data_filepath, ru
     print(15 * "-" + "Matching Images to Responses completed" + 15 * "-")
     # apply pca to images and responses
     roi_mask = np.load(roi_data_filepath)
-    # responses = np.array(responses).reshape(responses.shape[0], -1)[:, roi_mask.flatten()]
-    # responses_12 = np.array(responses_12).reshape(responses_12.shape[0], -1)[:, roi_mask.flatten()]
-    # responses_13 = np.array(responses_13).reshape(responses_13.shape[0], -1)[:, roi_mask.flatten()]
-    # responses_14 = np.array(responses_14).reshape(responses_14.shape[0], -1)[:, roi_mask.flatten()]
-    # responses_15 = np.array(responses_15).reshape(responses_15.shape[0], -1)[:, roi_mask.flatten()]
-    # responses = np.concatenate((responses_12, responses_13, responses_14, responses_15), axis=0)
-    # responses_pca = apply_pca(responses, n_components_responses, True, roi_mask, None,
+    # # responses = np.array(responses).reshape(responses.shape[0], -1)[:, roi_mask.flatten()]
+    responses_12 = np.array(responses_12).reshape(responses_12.shape[0], -1)[:, roi_mask.flatten()]
+    responses_13 = np.array(responses_13).reshape(responses_13.shape[0], -1)[:, roi_mask.flatten()]
+    responses_14 = np.array(responses_14).reshape(responses_14.shape[0], -1)[:, roi_mask.flatten()]
+    responses_15 = np.array(responses_15).reshape(responses_15.shape[0], -1)[:, roi_mask.flatten()]
+    responses = np.concatenate((responses_12, responses_13, responses_14, responses_15), axis=0)
+    # responses_pca = apply_pca(responses_12, n_components_responses, True, roi_mask, None,
     #                           run_name + "/" + "pca_responses_" + str(n_components_responses) + ".pkl",
     #                           run_name + "/scaler_responses.pkl")
-    # which test images do I want to be shown here?
-    # np.save(run_name + "/responses_pca_vectors_" + str(n_components_responses) + ".npy", responses_pca)
+    responses_pca = apply_pca(responses, n_components_responses, True, roi_mask, None,
+                              run_name + "/" + "pca_responses_" + str(n_components_responses) + ".pkl",
+                              run_name + "/scaler_responses.pkl")
+
+    # # which test images do I want to be shown here?
+    np.save(run_name + "/responses_pca_vectors_" + str(n_components_responses) + ".npy", responses_pca)
     # print(responses_pca)
-    responses_pca = np.load(run_name + "/responses_pca_vectors_" + str(n_components_responses) + ".npy")
+    # responses_pca = np.load(run_name + "/responses_pca_vectors_" + str(n_components_responses) + ".npy")
     print(15 * "-" + "Applied PCA to responses" + 15 * "-")
     # ADD option to load existing pca vectors with pca npy
     # images = images.reshape(images.shape[0], 1920 * 2560)
-    # images_12 = images_12.reshape(images_12.shape[0], 1920 * 2560)
-    # images_pca = apply_pca(images_12, n_components_images, False, roi_mask, None, run_name + "/" + "pca_images_"
-    #                        + str(n_components_images) + ".pkl", run_name + "/scaler_images.pkl")
+    images_12 = images_12.reshape(images_12.shape[0], 1920 * 2560)
+    # print(f"{images_12.shape=}")
+    images_pca = apply_pca(images_12, n_components_images, False, roi_mask, None, run_name + "/" + "pca_images_"
+                           + str(n_components_images) + ".pkl", run_name + "/scaler_images.pkl")
     # print("images_shape one trial", images_pca.shape)
-    # images_pca = np.concatenate((images_pca, images_pca, images_pca, images_pca), axis=0)
+    images_pca = np.concatenate((images_pca, images_pca, images_pca, images_pca), axis=0)
     # print("images_pca all images", images_pca.shape)
-    # ADD option to load existing pca vectors with pca npy
-    # np.save(run_name + "/images_pca_vectors_" + str(n_components_images) + ".npy", images_pca)
-    images_pca = np.load(run_name + "/images_pca_vectors_" + str(n_components_images) + ".npy") # load existing pca vectors
+    # # ADD option to load existing pca vectors with pca npy
+    np.save(run_name + "/images_pca_vectors_" + str(n_components_images) + ".npy", images_pca)
+    # images_pca = np.load(run_name + "/images_pca_vectors_" + str(n_components_images) + ".npy") # load existing pca vectors
     print(15 * "-" + "Applied PCA to images" + 15 * "-")
     # train model
-    # train_save_model(images_pca, responses_pca, num_epochs, learning_rate,
+    # train_save_model_one_trial(images_pca, responses_pca, num_epochs, learning_rate,
     #                  run_name + "/model" + "_" + str(num_epochs) + "_" +
     #                  str(learning_rate), run_name + "/model_plot", None)
     train_save_model_cross(images_pca, responses_pca, num_epochs, learning_rate,
@@ -955,13 +1010,16 @@ def pipeline(stims_param_filepath, roi_data_filepath, response_data_filepath, ru
 
 # one trial
 # pipeline("F0255/tseries_12/stimparams.dict", "F0255/1_roi_morphed.npy",
-#          "F0255/avg_responses_12_13_14_15_F0255.npy", "one_pc_responses", 1,
-#          147, 1e-3, 50,  [125,  51, 138,  19, 104,  12,  76,  31,  81,   9 , 26 , 96, 143 , 67 ,134])
+#          "F0255/avg_responses_12_13_14_15_F0255.npy", "one_pc_responses", 146,
+#          146, 1e-3, 50,  [])
 # all trials !!
 # with cross validation
 pipeline("F0255/tseries_12/stimparams.dict", "F0255/1_roi_morphed.npy",
-         "F0255/avg_responses_12_13_14_15_F0255.npy", "all_trials", 50,
-          147, 1e-5, 250,  list(range(147)))
+         "F0255/avg_responses_12_13_14_15_F0255.npy", "reconstruction", 146,
+          147, 1e-5, 2,  list(range(147)))
+# pipeline("F0255/tseries_12/stimparams.dict", "F0255/1_roi_morphed.npy",
+#          "F0255/avg_responses_12_13_14_15_F0255.npy", "reconstruction", 148,
+#           146, 1e-5, 250,  list(range(147)))
 
 def separate_trials(stims_param_filepath, roi_data_filepath, response_data_filepath, run_name, n_components_responses,
              n_components_images, learning_rate, num_epochs, test_indices):
@@ -1066,6 +1124,7 @@ def pipeline_full_images(run_name, learning_rate, num_epochs ):
     _, images_12, responses_12 = match_pictures_with_response("F0255/tseries_12/stimparams.dict",
                                                         "F0255/1_roi_morphed.npy",
                                                         "F0255/tseries_12/response_array_1s_interval.npy")
+    print(images_12.shape, responses_12.shape)
     _, images_13, responses_13 = match_pictures_with_response("F0255/tseries_13/stimparams.dict",
                                                         "F0255/1_roi_morphed.npy",
                                                         "F0255/tseries_13/response_array_1s_interval.npy")
@@ -1093,8 +1152,7 @@ def pipeline_full_images(run_name, learning_rate, num_epochs ):
                                  run_name + "/model" + "_" + str(num_epochs) + "_" +
                                  str(learning_rate), run_name + "/model_plot", None)
 
-# pipeline_full_images("full_images_cross", 1e-3, 2)
-
+# pipeline_full_images("full_images_cross", 1e-3, 25)
 
 
 def plot_correlation():
@@ -1151,6 +1209,7 @@ def plot_correlation():
     plt.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
 
     plt.tight_layout()
+    plt.savefig("trial_correlation_matrix.png")
     plt.savefig("trial_correlation_matrix.png")
     plt.show()
 
