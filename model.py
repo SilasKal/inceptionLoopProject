@@ -631,8 +631,7 @@ def train_save_model_cross(images, responses, num_epochs, learning_rate, model_f
                 inputs = inputs.to(device)
                 targets = targets.to(device)
                 # Apply mixup
-                inputs, targets, _ = mixup_data(inputs, targets, 0.3)
-
+                # inputs, targets, _ = mixup_data(inputs, targets, 0.7)
                 optimizer.zero_grad()
                 outputs = model(inputs)
                 loss = criterion(outputs, targets)
@@ -700,23 +699,27 @@ def train_save_model_cross(images, responses, num_epochs, learning_rate, model_f
     average_val_losses = np.mean(all_val_losses, axis=0)
     std_val_losses = np.std(all_val_losses, axis=0)
     plt.plot(average_train_losses, label='Average Training Loss')
-    plt.fill_between(range(len(average_train_losses)), average_train_losses - std_train_losses, average_train_losses + std_train_losses, alpha=0.2, label='Training Standard Deviation')
+    plt.fill_between(range(len(average_train_losses)), average_train_losses - std_train_losses, average_train_losses + std_train_losses, alpha=0.2, label='Training Loss Standard Deviation')
     plt.plot(average_val_losses, label='Average Validation Loss')
-    plt.fill_between(range(len(average_val_losses)), average_val_losses - std_val_losses, average_val_losses + std_val_losses, alpha=0.2, label='Validation Standard Deviation')
+    plt.fill_between(range(len(average_val_losses)), average_val_losses - std_val_losses, average_val_losses + std_val_losses, alpha=0.2, label='Validation Loss Standard Deviation')
     plt.xlabel('Epoch', fontsize=14)
     plt.ylabel('Loss', fontsize=14)
-    plt.legend(loc='upper right', alpha=0.8)
+    legend = plt.legend(loc='lower left', framealpha=0.8, title_fontsize=14)
+    for text in legend.get_texts():
+        text.set_fontsize(12)  # Change font size
     plt.savefig(plot_filepath + 'training_validation_loss.png')
     plt.show()
     plt.figure(figsize=(10, 6))
     average_r2_losses = np.mean(all_r_2_losses, axis=0)
     std_r2_losses = np.std(all_r_2_losses, axis=0)
     plt.plot(average_r2_losses, label='Average R^2 Validation')
-    plt.fill_between(range(len(average_r2_losses)), average_r2_losses - std_r2_losses, average_r2_losses + std_r2_losses, alpha=0.2, label='R^2 Standard Deviation')
-    plt.xlabel('Epoch')
-    plt.ylabel('R^2')
+    plt.fill_between(range(len(average_r2_losses)), average_r2_losses - std_r2_losses, average_r2_losses + std_r2_losses, alpha=0.2, label='R^2 Validation Standard Deviation')
+    plt.xlabel('Epoch', fontsize=14)
+    plt.ylabel('R^2', fontsize=14)
     # plt.title('Average R^2 with Standard Deviation')
-    plt.legend(loc="upper right", alpha=0.8)
+    legend = plt.legend(loc="lower left", framealpha=0.8)
+    for text in legend.get_texts():
+        text.set_fontsize(12)  # Change font size
     plt.savefig(plot_filepath + 'validation_r2_cross_validation.png')
     plt.show()
     for i in range(num_folds):
@@ -727,39 +730,85 @@ def train_save_model_cross(images, responses, num_epochs, learning_rate, model_f
     ss_tot = np.sum((true_outputs - np.mean(true_outputs)) ** 2)
     r_squared = 1 - (ss_res / ss_tot)
     print(f"Overall R^2 for cross validation last epoch: {r_squared:.4f}")
+    from sklearn.linear_model import LinearRegression, Ridge
+    from sklearn.svm import SVR
+    from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
+    from sklearn.metrics import mean_squared_error, r2_score
+    from sklearn.multioutput import MultiOutputRegressor
+    models = {
+        "Linear Regression": LinearRegression(),
+        "Ridge Regression": Ridge(alpha=1.0),
+        "Support Vector Regression": MultiOutputRegressor(SVR(kernel='rbf', C=1.0, epsilon=0.1)),
+        "Random Forest Regressor": RandomForestRegressor(n_estimators=100, random_state=42),
+        "Gradient Boosting Regressor": MultiOutputRegressor(
+            GradientBoostingRegressor(n_estimators=100, random_state=42)),
+    }
+
+    for name, small_model in models.items():
+        print(f"Training and testing {name}...")
+        fold_train_mse = []
+        fold_train_r2 = []
+        fold_test_mse = []
+        fold_test_r2 = []
+        for index in range(num_folds):
+            val_index = folds[index]
+            train_index = np.concatenate([folds[i] for i in range(num_folds) if i != index])
+            images_train, images_val = images[train_index], images[val_index]
+            responses_train, responses_val = responses[train_index], responses[val_index]
+
+            train_images_flat = images_train.reshape(images_train.shape[0], -1)
+            test_images_flat = images_val.reshape(images_val.shape[0], -1)
+
+            small_model.fit(train_images_flat, responses_train)
+            train_predictions = small_model.predict(train_images_flat)
+            test_predictions = small_model.predict(test_images_flat)
+
+            train_mse = mean_squared_error(responses_train, train_predictions)
+            train_r2 = r2_score(responses_train, train_predictions, multioutput='uniform_average')
+            test_mse = mean_squared_error(responses_val, test_predictions)
+            test_r2 = r2_score(responses_val, test_predictions, multioutput='uniform_average')
+
+            fold_train_mse.append(train_mse)
+            fold_train_r2.append(train_r2)
+            fold_test_mse.append(test_mse)
+            fold_test_r2.append(test_r2)
+
+            print(f"{name} - Average Train MSE: {np.mean(fold_train_mse):.4f}, Average Train R^2: {np.mean(fold_train_r2):.4f}, Average Test MSE: {np.mean(fold_test_mse):.4f}, Average Test R^2: {np.mean(fold_test_r2):.4f}")
+
+
     # plot pixels
-    plt.figure(figsize=(50, 6))
-    # print(f"{np.array(overall_targets_val).shape=}, {np.array(overall_model_outputs_val).shape=}")
-    print(f"{np.array(overall_targets_val).squeeze()[:, 0].shape=}, {np.array(overall_model_outputs_val)[:, 0].shape=}")
-    plt.plot(np.array(overall_targets_val).squeeze()[:, 0], np.array(overall_model_outputs_val)[:, 0], 'o', color="blue", label="Pixel 0")
-    plt.plot(np.array(overall_targets_val).squeeze()[:, 1], np.array(overall_model_outputs_val)[:, 1], 'o',
-             color="red", label="Pixel 1")
-    plt.plot(np.array(overall_targets_val).squeeze()[:, 2], np.array(overall_model_outputs_val)[:, 2], 'o',
-             color="green", label="Pixel 2")
-    plt.plot(np.array(overall_targets_val).squeeze()[:, 3], np.array(overall_model_outputs_val)[:, 3], 'o',
-             color="purple", label="Pixel 3")
-    plt.plot(np.array(overall_targets_val).squeeze()[:, 4], np.array(overall_model_outputs_val)[:, 4], 'o',
-             color="yellow", label="Pixel 4")
+    # plt.figure(figsize=(50, 6))
+    # # print(f"{np.array(overall_targets_val).shape=}, {np.array(overall_model_outputs_val).shape=}")
+    # print(f"{np.array(overall_targets_val).squeeze()[:, 0].shape=}, {np.array(overall_model_outputs_val)[:, 0].shape=}")
+    # plt.plot(np.array(overall_targets_val).squeeze()[:, 0], np.array(overall_model_outputs_val)[:, 0], 'o', color="blue", label="Pixel 0")
+    # plt.plot(np.array(overall_targets_val).squeeze()[:, 1], np.array(overall_model_outputs_val)[:, 1], 'o',
+    #          color="red", label="Pixel 1")
+    # plt.plot(np.array(overall_targets_val).squeeze()[:, 2], np.array(overall_model_outputs_val)[:, 2], 'o',
+    #          color="green", label="Pixel 2")
+    # plt.plot(np.array(overall_targets_val).squeeze()[:, 3], np.array(overall_model_outputs_val)[:, 3], 'o',
+    #          color="purple", label="Pixel 3")
+    # plt.plot(np.array(overall_targets_val).squeeze()[:, 4], np.array(overall_model_outputs_val)[:, 4], 'o',
+    #          color="yellow", label="Pixel 4")
     # plt.plot(np.array(overall_targets_val).squeeze()[:, 5], np.array(overall_model_outputs_val)[:, 5], 'o',
     #          color="black", label="Pixel 5")
-    plt.xlabel("True Value")
-    plt.ylabel("Predicted Value")
-    plt.title("True vs. Predicted Validation Samples")
-    plt.legend()
-    plt.savefig(plot_filepath + 'scatter_pixel_cross_validation.png')
-    plt.show()
+    # plt.xlabel("True Value")
+    # plt.ylabel("Predicted Value")
+    # plt.title("True vs. Predicted Validation Samples")
+    # plt.legend()
+    # plt.savefig(plot_filepath + 'scatter_pixel_cross_validation.png')
+    # plt.show()
     # print(f"{np.array(overall_targets_train).shape=}, {np.array(overall_model_outputs_train).shape=}")
     # print(f"{np.array(overall_targets_train).squeeze()[:, 0].shape=}, {np.array(overall_model_outputs_train)[:, 0].shape=}")
-    for i in range(2):
-        plt.figure(figsize=(10, 6))
-        plt.plot(np.array(overall_targets_train).squeeze()[:, i], np.array(overall_model_outputs_train)[:, i], 'o',
-                 label=f"Pixel {i}")
-        plt.xlabel("True Value")
-        plt.ylabel("Predicted Value")
-        plt.title(f"True vs. Predicted Training Samples for Pixel {i}")
-        plt.legend()
-        plt.savefig(plot_filepath + f'scatter_pixel_{i}_cross_training.png')
-        plt.show()
+    # for i in range(2):
+    #     plt.figure(figsize=(10, 6))
+    #     plt.plot(np.array(overall_targets_train).squeeze()[:, i], np.array(overall_model_outputs_train)[:, i], 'o',
+    #              label=f"Pixel {i}")
+    #     plt.xlabel("True Value")
+    #     plt.ylabel("Predicted Value")
+    #     plt.title(f"True vs. Predicted Training Samples for Pixel {i}")
+    #     plt.legend()
+    #     plt.savefig(plot_filepath + f'scatter_pixel_{i}_cross_training.png')
+    #     plt.show()
 
     # plt.figure(figsize=(50, 6))
     # plt.plot(np.array(overall_targets_val).squeeze(),np.array(overall_model_outputs_val).squeeze(), 'o')
@@ -929,24 +978,35 @@ def train_save_model(images_train, responses_train, images_test, responses_test,
     plt.figure(figsize=(10, 5))
     plt.plot(train_losses, label='Training Loss')
     plt.plot(val_losses, label='Validation Loss')
-    plt.plot(r_2_losses, label='R^2 Loss')
-    plt.xlabel('Epoch')
-    plt.ylabel('Loss')
-    plt.title('Training and Validation Loss per Epoch')
-    plt.legend()
+    plt.xlabel('Epoch', fontsize=14)
+    plt.ylabel('Loss', fontsize=14)
+    legend = plt.legend(loc="lower left", framealpha = 0.8)
+    for text in legend.get_texts():
+        text.set_fontsize(12)
     plt.savefig(plot_filepath + '.png')
     plt.show()
     torch.save(model.state_dict(), model_filepath + '.pth')
-    # Additional plots for predicted vs ground truth
-    plt.figure(figsize=(50, 6))
-    plt.plot(train_targets_last_epoch, train_model_outputs_last_epoch, 'o')
-    # plt.plot(x, model_outputs, 'o', label="Predicted Values", color="orange"
-    plt.xlabel("True Value")
-    plt.ylabel("Predicted Value")
-    plt.title("True vs. Predicted Training Samples")
-    plt.legend()
-    plt.savefig(plot_filepath + 'scatter_cross_training.png')
+    plt.figure(figsize=(10, 5))
+    plt.plot(r_2_losses, label='R^2 Validation')
+    plt.xlabel('Epoch', fontsize=14)
+    plt.ylabel('R^2', fontsize=14)
+    legend = plt.legend(loc="lower left", framealpha=0.8)
+    for text in legend.get_texts():
+        text.set_fontsize(12)
+    plt.savefig(plot_filepath + '_r_2' +  '.png')
     plt.show()
+
+
+    # Additional plots for predicted vs ground truth
+    # plt.figure(figsize=(50, 6))
+    # plt.plot(train_targets_last_epoch, train_model_outputs_last_epoch, 'o')
+    # # plt.plot(x, model_outputs, 'o', label="Predicted Values", color="orange"
+    # plt.xlabel("True Value")
+    # plt.ylabel("Predicted Value")
+    # plt.title("True vs. Predicted Training Samples")
+    # plt.legend()
+    # plt.savefig(plot_filepath + 'scatter_cross_training.png')
+    # plt.show()
 
     # Calculate R^2 for the training set
     train_targets_last_epoch = np.array(train_targets_last_epoch)
@@ -955,16 +1015,215 @@ def train_save_model(images_train, responses_train, images_test, responses_test,
     ss_tot = np.sum((train_targets_last_epoch - np.mean(train_targets_last_epoch)) ** 2)
     r_squared = 1 - (ss_res / ss_tot)
     print(f"Overall R^2 for training last epoch: {r_squared:.4f}")
-    for i in range(2):
-        plt.figure(figsize=(10, 6))
-        plt.plot(np.array(all_true_outputs).squeeze()[:, i], np.array(all_outputs)[:, i], 'o', label=f"Pixel {i}")
-        plt.xlabel("True Value")
-        plt.ylabel("Predicted Value")
-        plt.title(f"True vs. Predicted Testing Samples for Pixel {i}")
-        plt.legend()
-        plt.savefig(plot_filepath + f'scatter_pixel_{i}_testing.png')
-        # plt.show()
-    optimize_image(model, images_train.shape[1], responses_train.shape[1], model_filepath + '.pth', 1000000000, 0.01)
+    # for i in range(2):
+    #     plt.figure(figsize=(10, 6))
+    #     plt.plot(np.array(all_true_outputs).squeeze()[:, i], np.array(all_outputs)[:, i], 'o', label=f"Pixel {i}")
+    #     plt.xlabel("True Value")
+    #     plt.ylabel("Predicted Value")
+    #     plt.title(f"True vs. Predicted Testing Samples for Pixel {i}")
+    #     plt.legend()
+    #     plt.savefig(plot_filepath + f'scatter_pixel_{i}_testing.png')
+    #     # plt.show()
+    # optimize_image(model, images_train.shape[1], responses_train.shape[1], model_filepath + '.pth', 1000000000, 0.01)
+
+def train_save_model_one_trial(images, responses, num_epochs, learning_rate, model_filepath, plot_filepath, model=None):
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    print(f'Using device: {device}')
+
+    torch.manual_seed(42)
+
+    images = images.astype(np.float32)
+    responses = responses.astype(np.float32)
+    # indexes = np.arange(images.shape[0])
+    #
+    images_train, images_test, responses_train, responses_test = (
+         train_test_split(images, responses, test_size=0.1, random_state=42))
+    # indexes_test =  [125,51,138,19,104,12,76,31,81,9,26,96,143,67,134,272,198,285,166,251,159,223,178,228,156,173,243,290,214,281,419,345,432,313,398,306,370,325,375,303,320,390,437,361,428,566,492,579,460,545,453,517,472,522,450,467,537,584,508,575]
+    # indexes_train = [num for num in range(588) if num not in indexes_test]
+    # images_train, images_test = images[indexes_train], images[indexes_test]
+    # responses_train, responses_test = responses[indexes_train], responses[indexes_test]
+    # print("Training indexes:", indexes_train)
+    # print("Test indexes:", indexes_test)
+    # for i in range(responses_train.shape[1]):
+    #     plt.hist(np.array(responses_train)[:, i], bins=30, alpha=0.5, label=f"Pixel {i}")
+    # plt.show()
+    print(f"Training shapes: {images_train.shape}, {responses_train.shape}")
+    train_dataset = CustomImageDataset(num_images=images_train.shape[0], images=images_train, targets=responses_train)
+    test_dataset = CustomImageDataset(num_images=images_test.shape[0], images=images_test, targets=responses_test)
+    train_dataloader = DataLoader(train_dataset, batch_size=10, shuffle=True, num_workers=0, pin_memory=True)
+    test_dataloader = DataLoader(test_dataset, batch_size=10, shuffle=True, num_workers=0, pin_memory=True)
+
+
+
+
+    print(images_train.shape[1], responses_train.shape[1])
+    if model is None:
+        model = DeeperNN(input_size=images_train.shape[1], output_size=responses_train.shape[1])
+        # model = PopulationCNN(input_size=images_train.shape[1], output_size=responses_train.shape[1])
+    model.to(device)
+
+    # criterion = nn.MSELoss()
+    criterion = nn.L1Loss()
+    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, weight_decay=1e-5)
+
+    scaler = torch.cuda.amp.GradScaler()
+
+    # early_stopping = EarlyStopping(patience=100, min_delta=0.001)
+
+    train_losses = []
+    val_losses = []
+    r_2_losses = []
+    train_targets_last_epoch = []
+    train_model_outputs_last_epoch = []
+    for epoch in range(num_epochs):
+        epoch_loss = 0.0
+        progress_bar = tqdm(train_dataloader, desc=f"Epoch {epoch+1}/{num_epochs}")
+        for batch_idx, (inputs, targets) in enumerate(progress_bar):
+            inputs = inputs.to(device)
+            targets = targets.to(device)
+            optimizer.zero_grad()
+            outputs = model(inputs)
+            loss = criterion(outputs, targets)
+            scaler.scale(loss).backward()
+            scaler.step(optimizer)
+            scaler.update()
+
+            epoch_loss += loss.item()
+            progress_bar.set_postfix(loss=loss.item())
+            if epoch == num_epochs - 1:
+                train_targets_last_epoch.extend(targets.cpu().detach().numpy())
+                train_model_outputs_last_epoch.extend(outputs.cpu().detach().numpy())
+        average_loss = epoch_loss / len(train_dataloader)
+        train_losses.append(average_loss)
+        print(f"Epoch [{epoch+1}/{num_epochs}], Loss: {average_loss:.4f}")
+
+        model.eval()
+        val_loss = 0.0
+        all_outputs = []
+        all_true_outputs = []
+        with torch.no_grad():
+            for inputs, targets in test_dataloader:
+                inputs = inputs.to(device)
+                targets = targets.to(device)
+                outputs = model(inputs)
+                loss = criterion(outputs, targets)
+                val_loss += loss.item()
+                all_outputs.extend(outputs.cpu().numpy())
+                all_true_outputs.extend(targets.cpu().numpy())
+                # print(targets.cpu().numpy().shape)
+        true_outputs = np.array(all_true_outputs)
+        model_outputs = np.array(all_outputs)
+        ss_res = np.sum((true_outputs.flatten() - model_outputs.flatten()) ** 2)
+        ss_tot = np.sum((true_outputs - np.mean(true_outputs)) ** 2)
+        r_squared = 1 - (ss_res / ss_tot)
+        print(f"Overall R^2 for test images: {r_squared:.4f}")
+        r_2_losses.append(r_squared)
+        val_loss /= len(test_dataloader)
+        val_losses.append(val_loss)
+        print(f"Validation Loss: {val_loss:.4f}")
+
+
+        # early_stopping(val_loss)
+        # if early_stopping.early_stop:
+        #     print("Early stopping")
+        #     break
+    plt.figure(figsize=(10, 5))
+    plt.plot(train_losses, label='Training Loss')
+    plt.plot(val_losses, label='Validation Loss')
+    plt.xlabel('Epoch', fontsize=14)
+    plt.ylabel('Loss', fontsize=14)
+    legend = plt.legend(loc="lower left", framealpha = 0.8)
+    for text in legend.get_texts():
+        text.set_fontsize(12)
+    plt.savefig(plot_filepath + '.png')
+    plt.show()
+    torch.save(model.state_dict(), model_filepath + '.pth')
+    plt.figure(figsize=(10, 5))
+    plt.plot(r_2_losses, label='R^2 Validation')
+    plt.xlabel('Epoch', fontsize=14)
+    plt.ylabel('R^2', fontsize=14)
+    legend = plt.legend(loc="lower left", framealpha=0.8)
+    for text in legend.get_texts():
+        text.set_fontsize(12)
+    plt.savefig(plot_filepath + '_r_2' +  '.png')
+    plt.show()
+
+
+    # Additional plots for predicted vs ground truth
+    # plt.figure(figsize=(50, 6))
+    # plt.plot(train_targets_last_epoch, train_model_outputs_last_epoch, 'o')
+    # # plt.plot(x, model_outputs, 'o', label="Predicted Values", color="orange"
+    # plt.xlabel("True Value")
+    # plt.ylabel("Predicted Value")
+    # plt.title("True vs. Predicted Training Samples")
+    # plt.legend()
+    # plt.savefig(plot_filepath + 'scatter_cross_training.png')
+    # plt.show()
+
+    # Calculate R^2 for the training set
+    train_targets_last_epoch = np.array(train_targets_last_epoch)
+    train_model_outputs_last_epoch = np.array(train_model_outputs_last_epoch)
+    ss_res = np.sum((train_targets_last_epoch.flatten() - train_model_outputs_last_epoch.flatten()) ** 2)
+    ss_tot = np.sum((train_targets_last_epoch - np.mean(train_targets_last_epoch)) ** 2)
+    r_squared = 1 - (ss_res / ss_tot)
+    print(f"Overall R^2 for training last epoch: {r_squared:.4f}")
+    # for i in range(2):
+    #     plt.figure(figsize=(10, 6))
+    #     plt.plot(np.array(all_true_outputs).squeeze()[:, i], np.array(all_outputs)[:, i], 'o', label=f"Pixel {i}")
+    #     plt.xlabel("True Value")
+    #     plt.ylabel("Predicted Value")
+    #     plt.title(f"True vs. Predicted Testing Samples for Pixel {i}")
+    #     plt.legend()
+    #     plt.savefig(plot_filepath + f'scatter_pixel_{i}_testing.png')
+    #     # plt.show()
+    # Testing smaller models
+    from sklearn.linear_model import LinearRegression, Ridge
+    from sklearn.svm import SVR
+    from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
+    from sklearn.metrics import mean_squared_error, r2_score
+
+    models = {
+        "Linear Regression": LinearRegression(),
+        "Ridge Regression": Ridge(alpha=1.0),
+        "Support Vector Regression": SVR(kernel='rbf', C=1.0, epsilon=0.1),
+        "Random Forest Regressor": RandomForestRegressor(n_estimators=100, random_state=42),
+        "Gradient Boosting Regressor": GradientBoostingRegressor(n_estimators=100, random_state=42)
+    }
+
+    print(images_train.shape)
+    print(responses_train.shape)
+    train_images_flat = images_train.reshape(images_train.shape[0], -1)
+    test_images_flat = images_test.reshape(images_test.shape[0], -1)
+
+    from sklearn.multioutput import MultiOutputRegressor
+
+    models = {
+        "Linear Regression": LinearRegression(),
+        "Ridge Regression": Ridge(alpha=1.0),
+        "Support Vector Regression": MultiOutputRegressor(SVR(kernel='rbf', C=1.0, epsilon=0.1)),
+        "Random Forest Regressor": RandomForestRegressor(n_estimators=100, random_state=42),
+        "Gradient Boosting Regressor": MultiOutputRegressor(
+            GradientBoostingRegressor(n_estimators=100, random_state=42)),
+    }
+
+    train_images_flat = images_train.reshape(images_train.shape[0], -1)
+    test_images_flat = images_test.reshape(images_test.shape[0], -1)
+
+    for name, small_model in models.items():
+        print(f"Training and testing {name}...")
+        small_model.fit(train_images_flat, responses_train)
+        train_predictions = small_model.predict(train_images_flat)
+        test_predictions = small_model.predict(test_images_flat)
+
+        train_mse = mean_squared_error(responses_train, train_predictions)
+        train_r2 = r2_score(responses_train, train_predictions, multioutput='uniform_average')
+        test_mse = mean_squared_error(responses_test, test_predictions)
+        test_r2 = r2_score(responses_test, test_predictions, multioutput='uniform_average')
+
+        print(
+            f"{name} - Train MSE: {train_mse:.4f}, Train R^2: {train_r2:.4f}, Test MSE: {test_mse:.4f}, Test R^2: {test_r2:.4f}")
+
+    # optimize_image(model, images_train.shape[1], responses_train.shape[1], model_filepath + '.pth', 1000000000, 0.01)
 
 
 def train_save_model_cross_full_images(images, responses, num_epochs, learning_rate, model_filepath, plot_filepath, model=None):
@@ -1092,38 +1351,33 @@ def train_save_model_cross_full_images(images, responses, num_epochs, learning_r
         all_r_2_losses.append(r_2_losses)
 
     plt.figure(figsize=(10, 6))
-    for i in range(num_folds):
-        plt.plot(all_train_losses[i], label=f'Training Loss Fold {i + 1}')
-        # plt.plot(all_val_losses[i], label=f'Validation Loss Fold {i+1}')
-        # plt.plot(all_r_2_losses[i], label=f'R^2 Loss Fold {i+1}')
-    plt.xlabel('Epoch')
-    plt.ylabel('Loss')
-    plt.title('Training Loss per Epoch')
-    # plt.ylim(y_limit)
-    plt.legend()
-    plt.savefig(plot_filepath + 'training_cross_validation.png')
+    average_train_losses = np.mean(all_train_losses, axis=0)
+    std_train_losses = np.std(all_train_losses, axis=0)
+    average_val_losses = np.mean(all_val_losses, axis=0)
+    std_val_losses = np.std(all_val_losses, axis=0)
+    plt.plot(average_train_losses, label='Average Training Loss')
+    plt.fill_between(range(len(average_train_losses)), average_train_losses - std_train_losses, average_train_losses + std_train_losses, alpha=0.2, label='Training Loss Standard Deviation')
+    plt.plot(average_val_losses, label='Average Validation Loss')
+    plt.fill_between(range(len(average_val_losses)), average_val_losses - std_val_losses, average_val_losses + std_val_losses, alpha=0.2, label='Validation Loss Standard Deviation')
+    plt.xlabel('Epoch', fontsize=14)
+    plt.ylabel('Loss', fontsize=14)
+    # plt.title('Training and Validation Loss per Epoch')
+    legend = plt.legend(loc='lower left', framealpha=0.8)
+    for text in legend.get_texts():
+        text.set_fontsize(12)
+    plt.savefig(plot_filepath + 'training_validation_loss.png')
     plt.show()
     plt.figure(figsize=(10, 6))
-    for i in range(num_folds):
-        # plt.plot(all_train_losses[i], label=f'Training Loss Fold {i + 1}')
-        plt.plot(all_val_losses[i], label=f'Validation Loss Fold {i + 1}')
-        # plt.plot(all_r_2_losses[i], label=f'R^2 Loss Fold {i+1}')
-    plt.xlabel('Epoch')
-    plt.ylabel('Loss')
-    plt.title('Validation Loss per Epoch')
-    # plt.ylim(y_limit)
-    plt.legend()
-    plt.savefig(plot_filepath + 'validation_cross_validation.png')
-    plt.show()
-    plt.figure(figsize=(10, 6))
-    for i in range(num_folds):
-        # plt.plot(all_train_losses[i], label=f'Training Loss Fold {i + 1}')
-        # plt.plot(all_val_losses[i], label=f'Validation Loss Fold {i + 1}')
-        plt.plot(all_r_2_losses[i], label=f'R^2 Loss Fold {i + 1}')
-    plt.xlabel('Epoch')
-    plt.ylabel('Loss')
-    plt.title('R^2')
-    plt.legend()
+    average_r2_losses = np.mean(all_r_2_losses, axis=0)
+    std_r2_losses = np.std(all_r_2_losses, axis=0)
+    plt.plot(average_r2_losses, label='Average R^2 Validation')
+    plt.fill_between(range(len(average_r2_losses)), average_r2_losses - std_r2_losses, average_r2_losses + std_r2_losses, alpha=0.2, label='R^2 Validation Standard Deviation')
+    plt.xlabel('Epoch', fontsize = 14)
+    plt.ylabel('R^2', fontsize= 14)
+    # plt.title('R^2')
+    legend = plt.legend(loc='lower left', framealpha=0.8)
+    for text in legend.get_texts():
+        text.set_fontsize(12)
     plt.savefig(plot_filepath + 'validation_r2_cross_validation.png')
     plt.show()
     for i in range(num_folds):
@@ -1141,28 +1395,28 @@ def train_save_model_cross_full_images(images, responses, num_epochs, learning_r
     num_samples_to_plot = 5  # Number of samples to plot
     plt.figure(figsize=(15, 10))
     print(f"{true_outputs[0].shape=}, {model_outputs[0].shape=}")
-    for i in range(num_samples_to_plot):
-        plt.subplot(2, num_samples_to_plot, i + 1)
-        plt.imshow(true_outputs[i].squeeze())
-        plt.title(f'True Sample Validation {i + 1}')
-
-        plt.subplot(2, num_samples_to_plot, i + 1 + num_samples_to_plot)
-        plt.imshow(model_outputs[i].squeeze())
-        plt.title(f'Predicted Sample Validation {i + 1}')
-    plt.tight_layout()
-    plt.show()
-    num_samples_to_plot = 5  # Number of samples to plot
-    plt.figure(figsize=(15, 10))
-    for i in range(num_samples_to_plot):
-        plt.subplot(2, num_samples_to_plot, i + 1)
-        plt.imshow(overall_targets_train[-(i + 1)].squeeze())
-        plt.title(f'True Sample Training {i + 1}')
-
-        plt.subplot(2, num_samples_to_plot, i + 1 + num_samples_to_plot)
-        plt.imshow(overall_model_outputs_train[-(i + 1)].squeeze())
-        plt.title(f'Predicted Sample Training {i + 1}')
-    plt.tight_layout()
-    plt.show()
+    # for i in range(num_samples_to_plot):
+    #     plt.subplot(2, num_samples_to_plot, i + 1)
+    #     plt.imshow(true_outputs[i].squeeze())
+    #     plt.title(f'True Sample Validation {i + 1}')
+    #
+    #     plt.subplot(2, num_samples_to_plot, i + 1 + num_samples_to_plot)
+    #     plt.imshow(model_outputs[i].squeeze())
+    #     plt.title(f'Predicted Sample Validation {i + 1}')
+    # plt.tight_layout()
+    # plt.show()
+    # num_samples_to_plot = 5  # Number of samples to plot
+    # plt.figure(figsize=(15, 10))
+    # for i in range(num_samples_to_plot):
+    #     plt.subplot(2, num_samples_to_plot, i + 1)
+    #     plt.imshow(overall_targets_train[-(i + 1)].squeeze())
+    #     plt.title(f'True Sample Training {i + 1}')
+    #
+    #     plt.subplot(2, num_samples_to_plot, i + 1 + num_samples_to_plot)
+    #     plt.imshow(overall_model_outputs_train[-(i + 1)].squeeze())
+    #     plt.title(f'Predicted Sample Training {i + 1}')
+    # plt.tight_layout()
+    # plt.show()
     torch.save(model.state_dict(), model_filepath + '_cross_validation.pth')
     # print(np.average(all_r_2_losses))
     # optimize_image(model, images_train.shape[1], responses_train.shape[1])
@@ -1281,28 +1535,24 @@ def train_save_model_full_images(images, responses, num_epochs, learning_rate, m
     # Plot the losses and R^2 scores
     plt.figure(figsize=(10, 6))
     plt.plot(train_losses, label='Training Loss')
-    plt.xlabel('Epoch')
-    plt.ylabel('Loss')
-    plt.title('Training Loss per Epoch')
-    plt.legend()
-    plt.savefig(plot_filepath + 'training_loss.png')
-    plt.show()
-
-    plt.figure(figsize=(10, 6))
     plt.plot(val_losses, label='Validation Loss')
-    plt.xlabel('Epoch')
-    plt.ylabel('Loss')
-    plt.title('Validation Loss per Epoch')
-    plt.legend()
-    plt.savefig(plot_filepath + 'validation_loss.png')
+    plt.xlabel('Epoch', fontsize=14)
+    plt.ylabel('Loss', fontsize=14)
+    plt.title('Training and Validation Loss per Epoch')
+    legend = plt.legend(loc='upper right', framealpha=0.8)
+    for text in legend.get_texts():
+        text.set_fontsize(12)
+    plt.savefig(plot_filepath + 'training_validation_loss.png')
     plt.show()
 
     plt.figure(figsize=(10, 6))
     plt.plot(r_2_losses, label='R^2')
-    plt.xlabel('Epoch')
-    plt.ylabel('R^2')
-    plt.title('R^2 per Epoch')
-    plt.legend()
+    plt.xlabel('Epoch', fontsize=14)
+    plt.ylabel('R^2', fontsize=14)
+    plt.title('R^2 per Epoch', fontsize=14)
+    legend = plt.legend(loc='lower right', framealpha=0.8)
+    for text in legend.get_texts():
+        text.set_fontsize(12)
     plt.savefig(plot_filepath + 'r2_per_epoch.png')
     plt.show()
 
@@ -1314,10 +1564,11 @@ def train_save_model_full_images(images, responses, num_epochs, learning_rate, m
     ss_tot = np.sum((true_outputs - np.mean(true_outputs)) ** 2)
     r_squared = 1 - (ss_res / ss_tot)
     print(f"Overall R^2 for cross validation last epoch: {r_squared:.4f}")
-
+    roi_mask = np.load('F0255/1_roi_morphed.npy')
     num_samples_to_plot = 5  # Number of samples to plot
     plt.figure(figsize=(15, 10))
-    print(f"{true_outputs[0].shape=}, {model_outputs[0].shape=}")
+    true_outputs = np.where(roi_mask, true_outputs, np.nan)
+    model_outputs = np.where(roi_mask, model_outputs, np.nan)
     for i in range(num_samples_to_plot):
         plt.subplot(2, num_samples_to_plot, i + 1)
         plt.imshow(true_outputs[i].squeeze())
@@ -1329,7 +1580,8 @@ def train_save_model_full_images(images, responses, num_epochs, learning_rate, m
     plt.tight_layout()
     plt.show()
     num_samples_to_plot = 5 # Number of samples to plot
-    plt.figure(figsize=(15, 10))
+    overall_targets_train = np.where(roi_mask, overall_targets_train, np.nan)
+    overall_model_outputs_train = np.where(roi_mask, overall_model_outputs_train, np.nan)
     for i in range(num_samples_to_plot):
         plt.subplot(2, num_samples_to_plot, i + 1)
         plt.imshow(overall_targets_train[-(i + 1)].squeeze())
