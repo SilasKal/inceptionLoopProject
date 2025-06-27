@@ -4,10 +4,9 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="f78c631b-bdfd-485a-bf23-1f19675f09ad" name="Changes" comment="added function for full images, linear mixup">
+    <list default="true" id="f78c631b-bdfd-485a-bf23-1f19675f09ad" name="Changes" comment="updated plots">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/data_loading.py" beforeDir="false" afterPath="$PROJECT_DIR$/data_loading.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/model.py" beforeDir="false" afterPath="$PROJECT_DIR$/model.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -40,7 +39,6 @@
   &quot;associatedIndex&quot;: 3
 }</component>
   <component name="ProjectId" id="2nQL9x8oTNmg1MvRn7qOz5hGLbT" />
-  <component name="ProjectLevelVcsManager" settingsEditedManually="true" />
   <component name="ProjectViewState">
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
@@ -133,8 +131,8 @@
   <component name="SharedIndexes">
     <attachedChunks>
       <set>
-        <option value="bundled-js-predefined-d6986cc7102b-deb605915726-JavaScript-PY-243.22562.220" />
-        <option value="bundled-python-sdk-0fc6c617c4bd-9a18a617cbe4-com.jetbrains.pycharm.pro.sharedIndexes.bundled-PY-243.22562.220" />
+        <option value="bundled-js-predefined-d6986cc7102b-6a121458b545-JavaScript-PY-251.25410.122" />
+        <option value="bundled-python-sdk-880ecab49056-36ea0e71a18c-com.jetbrains.pycharm.pro.sharedIndexes.bundled-PY-251.25410.122" />
       </set>
     </attachedChunks>
   </component>
@@ -185,6 +183,13 @@
       <workItem from="1736173532550" duration="2747000" />
       <workItem from="1736347128993" duration="614000" />
       <workItem from="1736523214851" duration="3074000" />
+      <workItem from="1736587795954" duration="1885000" />
+      <workItem from="1737121116468" duration="1586000" />
+      <workItem from="1737343307724" duration="3279000" />
+      <workItem from="1737397017592" duration="1295000" />
+      <workItem from="1737400494998" duration="1223000" />
+      <workItem from="1738612823820" duration="52000" />
+      <workItem from="1751019525018" duration="417000" />
     </task>
     <task id="LOCAL-00001" summary="reverse PCA added to data loading and model, updated model to take correct input sizes">
       <option name="closed" value="true" />
@@ -218,7 +223,15 @@
       <option name="project" value="LOCAL" />
       <updated>1734094727276</updated>
     </task>
-    <option name="localTasksCounter" value="5" />
+    <task id="LOCAL-00005" summary="updated plots">
+      <option name="closed" value="true" />
+      <created>1736587829074</created>
+      <option name="number" value="00005" />
+      <option name="presentableId" value="LOCAL-00005" />
+      <option name="project" value="LOCAL" />
+      <updated>1736587829074</updated>
+    </task>
+    <option name="localTasksCounter" value="6" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -242,10 +255,11 @@
     <MESSAGE value="split in test and train, average responses over trials, r^2" />
     <MESSAGE value="implemented training and testing for predicting pixels" />
     <MESSAGE value="added get_most_exciting_stimuli" />
-    <option name="LAST_COMMIT_MESSAGE" value="added get_most_exciting_stimuli" />
+    <MESSAGE value="updated plots" />
+    <option name="LAST_COMMIT_MESSAGE" value="updated plots" />
   </component>
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
     <SUITE FILE_PATH="coverage/inceptionLoopProject$model.coverage" NAME="model Coverage Results" MODIFIED="1733764210899" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
-    <SUITE FILE_PATH="coverage/inceptionLoopProject$data_loading.coverage" NAME="data_loading Coverage Results" MODIFIED="1736525990519" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/inceptionLoopProject$data_loading.coverage" NAME="data_loading Coverage Results" MODIFIED="1737345951702" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
   </component>
 </project>

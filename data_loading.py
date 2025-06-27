@@ -166,10 +166,16 @@ def match_pictures_with_response(stims_param_name="stimparams.dict", roi_data_na
     response_data = np.load(response_data_name).squeeze()
     # response_data = np.where(roi_data == 0, 0, response_data)
     resolution = 1000 / 182
-    # plt.imshow(response_data[0])
-    # plt.title("Original Response before normalizing")
-    # plt.colorbar()
-    # plt.show()
+    print(response_data.shape)
+    fig, axs = plt.subplots(1, 3, figsize=(15, 5), gridspec_kw={'wspace': 0})
+
+    for i in range(3):
+        im = axs[i].imshow(response_data[i][7:-7, 7:-7])  # Cut off 5 pixels from each side
+        axs[i].axis('off')
+
+    # fig.colorbar(im, ax=axs, orientation='vertical', fraction=0.02, pad=0.04)
+    plt.savefig("original_responses.png")
+    plt.show()
     # print(response_data[0].shape)
     # print(response_data[0])
     response_data = lowhigh_normalize(frame=response_data, mask=roi_data, sig_high=100 / resolution, sig_low=1)
@@ -892,7 +898,7 @@ def pipeline(stims_param_filepath, roi_data_filepath, response_data_filepath, ru
     directory_path = run_name
     os.makedirs(directory_path, exist_ok=True)
     # match images with responses and apply filter + high low normalize
-    # _, images, responses = match_pictures_with_response(stims_param_filepath, roi_data_filepath, response_data_filepath)
+    _, images, responses = match_pictures_with_response(stims_param_filepath, roi_data_filepath, response_data_filepath)
     # _, images_12, responses_12 = match_pictures_with_response("F0255/tseries_12/stimparams.dict",
     #                                                     "F0255/1_roi_morphed.npy",
     #                                                     "F0255/tseries_12/response_array_1s_interval.npy")
