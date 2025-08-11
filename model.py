@@ -16,6 +16,9 @@ from sklearn.model_selection import GridSearchCV
 from sklearn.model_selection import train_test_split
 import pickle as pk
 from PIL import Image
+from torch.nn import TransformerEncoder, TransformerEncoderLayer
+import matplotlib.pyplot as plt
+
 
 class ImageToResponseCNN(nn.Module):
     def __init__(self):
@@ -24,7 +27,7 @@ class ImageToResponseCNN(nn.Module):
         self.conv2 = nn.Conv2d(32, 64, kernel_size=3, stride=1, padding=1)
         self.conv3 = nn.Conv2d(64, 128, kernel_size=3, stride=1, padding=1)
         self.pool = nn.MaxPool2d(kernel_size=2, stride=2, padding=0)
-        self.fc1 = nn.Linear(128 * 33 * 40, 1024)  # Adjusted for new input shape
+        self.fc1 = nn.Linear(128 * 33 * 40, 1024)
         self.fc2 = nn.Linear(1024, 270 * 320)
         self.elu = nn.ELU()
 
@@ -32,7 +35,7 @@ class ImageToResponseCNN(nn.Module):
         x = self.pool(F.elu(self.conv1(x)))
         x = self.pool(F.elu(self.conv2(x)))
         x = self.pool(F.elu(self.conv3(x)))
-        x = x.view(-1, 128 * 33 * 40)  # Adjusted for new input shape
+        x = x.view(-1, 128 * 33 * 40)
         x = self.elu(self.fc1(x))
         x = self.fc2(x)
         x = x.view(-1, 270, 320)
@@ -45,28 +48,21 @@ class PopulationCNN(nn.Module):
 
         # Core network with 3 convolutional layers
         self.conv1 = nn.Conv1d(in_channels=1, out_channels=16, kernel_size=3, padding=1)
-        self.dropout1 = nn.Dropout(p=0.5)  # Add dropout layer with 50% probability
+        self.dropout1 = nn.Dropout(p=0.5)
         self.conv2 = nn.Conv1d(in_channels=16, out_channels=32, kernel_size=3, padding=1)
-        self.dropout2 = nn.Dropout(p=0.5)  # Add dropout layer with 50% probability
+        self.dropout2 = nn.Dropout(p=0.5)
         self.conv3 = nn.Conv1d(in_channels=32, out_channels=64, kernel_size=3, padding=1)
-        self.dropout3 = nn.Dropout(p=0.5)  # Add dropout layer with 50% probability
+        self.dropout3 = nn.Dropout(p=0.5)
         # Batch normalization
         self.bn1 = nn.BatchNorm1d(16)
         self.bn2 = nn.BatchNorm1d(32)
         self.bn3 = nn.BatchNorm1d(64)
-
-        # Non-linear activation
         self.elu = nn.ELU()
-
-        # Calculate the size after convolutional layers
-        conv_output_size = input_size  # No pooling layers, so size remains the same
-
-        # Readout layer to predict population activity
+        conv_output_size = input_size
         self.fc1 = nn.Linear(64 * conv_output_size, 128)
         self.fc2 = nn.Linear(128, output_size)
 
     def forward(self, x):
-        # Core layers
         x = self.conv1(x)
         x = self.bn1(x)
         x = self.elu(x)
@@ -75,17 +71,13 @@ class PopulationCNN(nn.Module):
         x = self.conv2(x)
         x = self.bn2(x)
         x = self.elu(x)
-        x = self.dropout2(x)  # Apply dropout after activation
+        x = self.dropout2(x)
 
         x = self.conv3(x)
         x = self.bn3(x)
         x = self.elu(x)
-        x = self.dropout3(x)  # Apply dropout after activation
-
-        # Flatten the output for fully connected layers
+        x = self.dropout3(x)
         x = x.view(x.size(0), -1)
-
-        # Readout layers
         x = self.fc1(x)
         x = self.elu(x)
         x = self.fc2(x)
@@ -103,17 +95,14 @@ class CNNtoFCNN(nn.Module):
         self.dropout = nn.Dropout(0.3)
 
     def forward(self, x):
-        # x = x.unsqueeze(1)  # Add channel dimension for 1D convs
+        # x = x.unsqueeze(1)
         x = torch.relu(self.conv1(x))
         x = torch.relu(self.conv2(x))
-        x = x.view(x.size(0), -1)  # Flatten for fully connected layers
+        x = x.view(x.size(0), -1)
         x = torch.relu(self.fc1(x))
         x = self.dropout(x)
         x = self.fc2(x)
         return x
-
-
-from torch.nn import TransformerEncoder, TransformerEncoderLayer
 
 
 class TransformerModel(nn.Module):
@@ -128,12 +117,11 @@ class TransformerModel(nn.Module):
         self.fc = nn.Linear(input_size, output_size)
 
     def forward(self, x):
-        # Check the input dimensions
         if x.dim() == 4:
-            x = x.squeeze(1)  # Remove the extra dimension if present
+            x = x.squeeze(1)
 
         x = self.transformer_encoder(x)
-        x = x.mean(dim=1)  # Aggregate output
+        x = x.mean(dim=1)
         x = self.fc(x)
         return x
 
@@ -150,7 +138,7 @@ class SimpleNN(nn.Module):
     def forward(self, x):
         x = torch.relu(self.fc1(x))  # Apply ReLU after the first layer
         x = torch.relu(self.fc2(x))  # Apply ReLU after the second layer
-        x = self.fc3(x)  # Output layer (no activation, as it depends on the task)
+        x = self.fc3(x)  # Output layer
         return x
 
 
@@ -167,7 +155,7 @@ class ComplexNN(nn.Module):
         self.fc6 = nn.Linear(64, 32)  # Sixth layer: 64 -> 32
         self.fc7 = nn.Linear(32, output_size)  # Output layer: 32 -> output_size
         # Dropout layer
-        self.dropout = nn.Dropout(0.3)  # Dropout with 30% probability
+        self.dropout = nn.Dropout(0.3)
 
         # Xavier initialization
         nn.init.xavier_uniform_(self.fc1.weight)
@@ -191,7 +179,7 @@ class ComplexNN(nn.Module):
         x = torch.sigmoid(self.fc5(x))
         x = self.dropout(x)  # Apply dropout after the fifth layer
         x = torch.sigmoid(self.fc6(x))
-        x = self.fc7(x)  # Final output layer (no activation for regression tasks)
+        x = self.fc7(x)  # Final output layer
         return x
 
 
@@ -208,7 +196,7 @@ class DeeperNN(nn.Module):
         self.fc6 = nn.Linear(128, 128)
         self.fc7 = nn.Linear(128, output_size)
 
-        # Dropout layers to prevent overfitting
+        # Dropout layer
         self.dropout = nn.Dropout(0.3)
 
     def forward(self, x):
@@ -244,7 +232,7 @@ class CustomCNN(nn.Module):
         self.pool2 = nn.MaxPool2d(kernel_size=2, stride=2)  # Output: (256, 55, 55)
 
         # Fully connected layers
-        self.fc1 = nn.Linear(256 * 55 * 55, 1024)  # Flatten and map to 1024 features
+        self.fc1 = nn.Linear(256 * 55 * 55, 1024)
         self.fc2 = nn.Linear(1024, 37500)  # Map to output size # inh =9375 # exc = 37500
 
     def forward(self, x):
@@ -256,7 +244,6 @@ class CustomCNN(nn.Module):
         x = F.relu(self.conv4(x))
         x = self.pool2(x)
 
-        # Flatten the tensor for fully connected layers
         x = x.view(x.size(0), -1)  # Ensure batch size is preserved
         x = F.relu(self.fc1(x))
         x = self.fc2(x)
@@ -298,45 +285,46 @@ class CustomCNN_2(nn.Module):
         return x
 
 
-# class DeeperNN(nn.Module):
-#     def __init__(self, input_size, output_size):
-#         super(DeeperNN, self).__init__()
-#         self.fc1 = nn.Linear(input_size, 4096)  # Start with a large number of neurons
-#         self.fc2 = nn.Linear(4096, 2048)
-#         self.fc3 = nn.Linear(2048, 1024)
-#         self.fc4 = nn.Linear(1024, 512)
-#         self.fc5 = nn.Linear(512, 256)
-#         self.fc6 = nn.Linear(256, 128)
-#         self.fc7 = nn.Linear(128, output_size)  # Match the number of output features
-#
-#         # Add activation functions and dropout for regularization
-#         self.relu = nn.ReLU()
-#         self.dropout = nn.Dropout(p=0.3)  # Dropout to avoid overfitting
-#
-#         nn.init.xavier_uniform_(self.fc1.weight)
-#         nn.init.xavier_uniform_(self.fc2.weight)
-#         nn.init.xavier_uniform_(self.fc3.weight)
-#         nn.init.xavier_uniform_(self.fc4.weight)
-#         nn.init.xavier_uniform_(self.fc5.weight)
-#         nn.init.xavier_uniform_(self.fc6.weight)
-#         nn.init.xavier_uniform_(self.fc7.weight)
-#
-#     def forward(self, x):
-#         x = self.relu(self.fc1(x))
-#         x = self.dropout(x)
-#         x = self.relu(self.fc2(x))
-#         x = self.dropout(x)
-#         x = self.relu(self.fc3(x))
-#         x = self.dropout(x)
-#         x = self.relu(self.fc4(x))
-#         x = self.dropout(x)
-#         x = self.relu(self.fc5(x))
-#         x = self.dropout(x)
-#         x = self.relu(self.fc6(x))
-#         x = self.fc7(x)  # No activation on the output layer for regression tasks
-#         return x
+class DeeperNN(nn.Module):
+    def __init__(self, input_size, output_size):
+        super(DeeperNN, self).__init__()
+        self.fc1 = nn.Linear(input_size, 4096)  # Start with a large number of neurons
+        self.fc2 = nn.Linear(4096, 2048)
+        self.fc3 = nn.Linear(2048, 1024)
+        self.fc4 = nn.Linear(1024, 512)
+        self.fc5 = nn.Linear(512, 256)
+        self.fc6 = nn.Linear(256, 128)
+        self.fc7 = nn.Linear(128, output_size)  # Match the number of output features
 
-# Custom Dataset
+        # Add activation functions and dropout for regularization
+        self.relu = nn.ReLU()
+        self.dropout = nn.Dropout(p=0.3)  # Dropout to avoid overfitting
+
+        nn.init.xavier_uniform_(self.fc1.weight)
+        nn.init.xavier_uniform_(self.fc2.weight)
+        nn.init.xavier_uniform_(self.fc3.weight)
+        nn.init.xavier_uniform_(self.fc4.weight)
+        nn.init.xavier_uniform_(self.fc5.weight)
+        nn.init.xavier_uniform_(self.fc6.weight)
+        nn.init.xavier_uniform_(self.fc7.weight)
+
+    def forward(self, x):
+        x = self.relu(self.fc1(x))
+        x = self.dropout(x)
+        x = self.relu(self.fc2(x))
+        x = self.dropout(x)
+        x = self.relu(self.fc3(x))
+        x = self.dropout(x)
+        x = self.relu(self.fc4(x))
+        x = self.dropout(x)
+        x = self.relu(self.fc5(x))
+        x = self.dropout(x)
+        x = self.relu(self.fc6(x))
+        x = self.fc7(x)  # No activation on the output layer for regression tasks
+        return x
+
+
+# Custom Dataset for easier training and testing
 class CustomImageDataset(Dataset):
     def __init__(self, num_images, images, targets):
         super(CustomImageDataset, self).__init__()
@@ -381,9 +369,6 @@ def train_model(model, dataloader, criterion, optimizer, num_epochs):
     torch.save(model.state_dict(), 'trained_model_weights.pth')
 
 
-import matplotlib.pyplot as plt
-
-
 def predict_image(model, input_image, true_output=None):
     model.eval()
     input_image = input_image.astype(np.float32).reshape(-1, 1, input_image.shape[1])
@@ -420,9 +405,6 @@ def predict_image(model, input_image, true_output=None):
     return output_image
 
 
-
-
-
 class EarlyStopping:
     def __init__(self, patience=5, min_delta=0):
         self.patience = patience
@@ -441,9 +423,6 @@ class EarlyStopping:
         else:
             self.best_loss = val_loss
             self.counter = 0
-
-
-from sklearn.model_selection import GroupKFold
 
 
 def generate_random_indices(num_variations, num_indices, max_index):
@@ -467,9 +446,8 @@ class MAPELoss(nn.Module):
         super(MAPELoss, self).__init__()
 
     def forward(self, y_pred, y_true):
-        epsilon = 1e-8  # Vermeidet Division durch Null
+        epsilon = 1e-8  # no division by zero
         return torch.mean(torch.abs((y_true - y_pred) / (y_true + epsilon)))
-
 
 
 def reconstruct_image_from_pca(pca_filepath, scaler_filepath, image_pca_vector):
@@ -487,8 +465,6 @@ def reconstruct_image_from_pca(pca_filepath, scaler_filepath, image_pca_vector):
     plt.show()
 
 
-
-# with 5000 saw image that showed some features of the original image
 def optimize_image(model, input_size=None, model_filepath='', num_steps=5000, pca_component=None):
     if model_filepath != '':
         # model = ComplexNN(input_size=input_size, output_size=output_size)
@@ -944,9 +920,9 @@ def train_save_model_cross(images, responses, num_epochs, learning_rate, model_f
     # optimize_image(model, images_train.shape[2], responses_train.shape[1])
 
 
-
 def train_save_model_with_sklearn(images_train, responses_train, images_test, responses_test,
                                   model_type='random_forest'):
+    """ Train and evaluate a regression model using scikit-learn."""
     if model_type == 'linear':
         model = LinearRegression()
     elif model_type == 'ridge':
@@ -1159,6 +1135,7 @@ def train_save_model(images_train, responses_train, images_test, responses_test,
 
 
 def train_save_model_one_trial(images, responses, num_epochs, learning_rate, model_filepath, plot_filepath, model=None):
+    """train and save a model for one trial"""
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f'Using device: {device}')
 
@@ -1355,6 +1332,7 @@ def train_save_model_one_trial(images, responses, num_epochs, learning_rate, mod
 
 def train_save_model_cross_full_images(images, responses, num_epochs, learning_rate, model_filepath, plot_filepath,
                                        model=None):
+    """ Train and save a model using cross-validation on full images."""
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     print(f'Using device: {device}')
@@ -1560,10 +1538,10 @@ def resize_images(images, new_size):
     return np.array(resized_images)
 
 
-# Example usage:
-
 def train_save_model_full_images(images, responses, num_epochs, learning_rate, model_filepath, plot_filepath,
                                  model=None):
+    """
+    Train and save a model using full images."""
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     print(f'Using device: {device}')

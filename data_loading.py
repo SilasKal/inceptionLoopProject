@@ -19,10 +19,9 @@ from imblearn.over_sampling import RandomOverSampler
 from model import (train_save_model_full_images, train_save_model_with_sklearn, optimize_image, PopulationCNN,
                    train_save_model_cross_full_images, CustomCNN, CustomCNN_2, train_save_model, train_save_model_cross)
 
+
 def load_npy(data_name):
-    # Load the .npy file
     data = np.load(data_name)
-    # Now 'data' is a NumPy array containing the data from the .npy file
     print('Data shape:', data.shape)
     # print(data)
     plt.imshow(data)
@@ -30,7 +29,6 @@ def load_npy(data_name):
 
 
 def load_dict(data_name):
-    # Replace 'your_data.npy' with the path to your .npy file
     data = np.load(data_name, allow_pickle=True)
     print(data)
 
@@ -86,7 +84,6 @@ def load_images(directory):
 def find_image(number):
     # List all files in the directory
     files = os.listdir('Images')
-
     # Filter out only TIFF files
     tif_files = [f for f in files if f.lower().endswith('.tif') or f.lower().endswith('.tiff')]
     for tif_file in tif_files:
@@ -158,6 +155,8 @@ def lowhigh_normalize(frame, mask=None, sig_high=None, sig_low=None):
 
 def match_pictures_with_response(stims_param_name="stimparams.dict", roi_data_name="1_roi_morphed.npy",
                                  response_data_name="response_array_1s_interval.npy"):
+    """Match pictures with their corresponding responses and returns a list of tuples containing the image
+     and its response."""
     stims_shown = np.load(stims_param_name, allow_pickle=True)
     picture_ids = [int(t[0]) for t in stims_shown["stimDuration"][:]]
     # print(picture_ids)
@@ -234,10 +233,6 @@ def match_pictures_with_response(stims_param_name="stimparams.dict", roi_data_na
     return images_responses, images, responses_images
 
 
-# images_responses, images, responses = match_pictures_with_response()
-# images_responses, images, responses = match_pictures_with_response(stims_param_name="F0255/tseries_12/stimparams.dict",roi_data_name="F0255/1_roi_morphed.npy", response_data_name="F0255/avg_responses_12_13_14_15_F0255.npy")
-
-
 def apply_pca(data, n_components, response_data=None, mask=None, pca_vector=None, pca_filepath="", scaler_filepath=""):
     """
     Apply PCA to the given data.
@@ -303,24 +298,8 @@ def apply_pca(data, n_components, response_data=None, mask=None, pca_vector=None
     return transformed_data
 
 
-# only select mask area:
-# roi_mask = np.load("F0255/1_roi_morphed.npy") # !!Select the correct mask!!
-# responses = np.array(responses).reshape(responses.shape[0], -1)[:, roi_mask.flatten()]
-# print(responses.shape)
-# response_data_pca = apply_pca(data=responses, n_components=25, response_data=True, mask=roi_mask, pca_vector=None)
-# # response_data_pca = apply_pca(data=responses, n_components=50, response_data=True, mask=roi_mask, pca_vector=response_data_pca[10])
-# np.save("responses_F0255_25_pca.npy", response_data_pca)
-# print(images.shape)
-# images = images.reshape(images.shape[0], 1920*2560)
-# images_pca = apply_pca(data=images, n_components=147, response_data=False)
-# np.save("images_F0255_147_pca.npy", images_pca)
-# 95 mit 102 aber kann das bild nicht mehr erkennen
-# 147 noch 100% variance
-
-
 def calculate_r_squared_images(images1, images2):
     r_squared_values = []
-
     for i in range(images1.shape[0]):
         # Flatten each pair of images
         actual = images1[i].flatten()
@@ -400,28 +379,8 @@ def test_model(model_name, input_image, true_output, pca_name_response, scaler_n
     return output_image, true_output, loss_test_image, r_2[0], r_squared
 
 
-
-
-# responses_pca = np.load("responses_F0255_25_pca.npy")
-# images_pca = np.load("images_F0255_147_pca.npy")
-
-# TODO clean up code
-
-# test_model("trained_model_weights_500.pth", images_pca[10], responses_pca[10], "pca_responses.pkl", "scaler_responses.pkl", np.load("1_roi_morphed.npy"))
-# for i in range(147):
-#     test_model("trained_model_weights_F0255_100.pth", images_pca[i], responses_pca[i],
-#                "pca_responses.pkl", "scaler_responses.pkl", np.load("F0255/1_roi_morphed.npy"))
-# test_model("trained_model_weights_F0255_100.pth", images_pca[9], responses_pca[9],
-#            "pca_responses.pkl", "scaler_responses.pkl", np.load("F0255/1_roi_morphed.npy"))
-# test_model("trained_model_weights_F0255_100.pth", images_pca[51], responses_pca[51],
-#            "pca_responses.pkl", "scaler_responses.pkl", np.load("F0255/1_roi_morphed.npy"))
-# test_model("trained_model_weights_F0255_100.pth", images_pca[125], responses_pca[125],
-#             "pca_responses.pkl", "scaler_responses.pkl", np.load("F0255/1_roi_morphed.npy"))
-
-
 def calculate_image_correlations(images1, images2):
     correlations = []
-
     for i in range(images1.shape[0]):
         # Flatten each pair of images
         img1_flat = images1[i].flatten()
@@ -443,6 +402,7 @@ def calculate_image_correlations(images1, images2):
 
 
 def load_all_responses_and_avg():
+    """Load all responses from different trials, average them, and visualize the results."""
     string_directory = "F0255/tseries_"
     strings_subdirectories = ["12", "13", "14", "15"]
     responses_all_trials = []
@@ -475,8 +435,8 @@ def load_all_responses_and_avg():
 # load_all_responses_and_avg() # average all responses over trials
 
 
-
 def get_pixel_value_standardized(responses, pixels):
+    """Get standardized pixel values for specified pixels across multiple responses."""
     values = np.array([responses[:, row, col] for row, col in pixels])
     values = values.T
     mean_values = np.mean(values, axis=0)
@@ -489,6 +449,7 @@ def get_pixel_value_standardized(responses, pixels):
 
 
 def find_pixels_with_most_variance(images, num_of_pixels=1):
+    """Find pixels with the most variance across multiple images."""
     variance = np.nanvar(images, axis=0)
     valid_mask = np.isfinite(variance)
     valid_variance = variance[valid_mask]
@@ -499,6 +460,7 @@ def find_pixels_with_most_variance(images, num_of_pixels=1):
 
 
 def get_common_pixels_within_distance(pixels_list, distance=3):
+    """Find common pixels within a specified distance across multiple trials."""
     common_pixels = set(pixels_list[0])
     for pixels in pixels_list[1:]:
         new_common_pixels = set()
@@ -512,6 +474,7 @@ def get_common_pixels_within_distance(pixels_list, distance=3):
 
 
 def get_pixel_with_most_variance(num_of_pixels=1, one_trial=False):
+    """Find pixels with the most variance across multiple trials or a single trial."""
     if one_trial:
         _, _, responses = match_pictures_with_response("F0255/tseries_12/stimparams.dict", "F0255/1_roi_morphed.npy",
                                                        "F0255/tseries_12/response_array_1s_interval.npy")
@@ -589,7 +552,7 @@ def get_pixel_with_most_variance(num_of_pixels=1, one_trial=False):
 
 
 def find_pixels_with_most_and_least_variance(num_of_pixels=1, threshold=1e-4):
-    # Find pixels with the most variance within each trial
+    """Find pixels with the most and least variance across multiple trials."""
     _, _, responses_12 = match_pictures_with_response("F0255/tseries_12/stimparams.dict", "F0255/1_roi_morphed.npy",
                                                       "F0255/tseries_12/response_array_1s_interval.npy")
     _, _, responses_13 = match_pictures_with_response("F0255/tseries_13/stimparams.dict", "F0255/1_roi_morphed.npy",
@@ -653,11 +616,8 @@ def find_pixels_with_most_and_least_variance(num_of_pixels=1, threshold=1e-4):
     return filtered_pixels, values, responses_12
 
 
-# combined both approaches for pixels
-# _, values, _ = find_pixels_with_most_and_least_variance(num_of_pixels=1000, threshold=10e-4)
-
-
 def get_pixels_with_min_var_above_threshold(threshold=1e-4, num_pixels=500):
+    """Find pixels with minimum variance above a specified threshold across multiple trials."""
     _, _, responses_12 = match_pictures_with_response("F0255/tseries_12/stimparams.dict", "F0255/1_roi_morphed.npy",
                                                       "F0255/tseries_12/response_array_1s_interval.npy")
     _, _, responses_13 = match_pictures_with_response("F0255/tseries_13/stimparams.dict", "F0255/1_roi_morphed.npy",
@@ -693,6 +653,7 @@ def get_pixels_with_min_var_above_threshold(threshold=1e-4, num_pixels=500):
 
 
 def get_pixel_value(responses, pixels):
+    """Extract pixel values from the responses array based on specified pixel coordinates."""
     values = np.array([responses[:, row, col] for row, col in pixels])
     values = values.T
     print(values.shape)
@@ -714,19 +675,6 @@ def get_pixels_all_responses(responses_all_trials, pixels):
         all_values[index_0:index_1, :] = curr_values
     print(f"{all_values.shape=}")
     return all_values
-
-
-# common_pixels, responses = get_pixel_with_most_variance(num_of_pixels=3) # 101 common
-
-# common_pixels,values, responses = get_pixel_with_most_variance(500, True)
-# common_pixels, responses = get_pixel_with_most_variance(num_of_pixels=3) # 1 common
-# common_pixels, responses = get_pixel_with_most_variance(num_of_pixels=140) # 70
-# print(f"{len(common_pixels)=}")
-# responses_pixels = get_pixels_all_responses(responses, common_pixels)
-# low_variance_pixels, responses = get_pixels_with_min_var_above_threshold(10**-4, 250)
-# low_variance_pixels, responses = get_pixels_with_min_var_above_threshold(10**-5, 50)
-# responses_pixels = get_pixels_all_responses(responses, low_variance_pixels)
-
 
 
 def oversample_by_threshold(images_pca, responses_pixels, above_threshold, below_threshold, oversample_factor=1):
@@ -780,7 +728,6 @@ def oversample_by_threshold(images_pca, responses_pixels, above_threshold, below
     responses_oversampled = np.vstack((responses_pixels, oversampled_responses))
 
     return images_oversampled, responses_oversampled, images_test, responses_test
-
 
 
 def pipeline_pixels(responses_pixels, images_pca, num_epochs, learning_rate, run_name):
@@ -861,25 +808,6 @@ def get_most_exciting_stimuli(search_pixels=None):
     plt.show()
 
 
-# get_most_exciting_stimuli(common_pixels)
-
-# pipeline_pixels(responses_pixels, np.load("all_trials/images_pca_vectors_147.npy"), 5, 10e-3, "pixels")
-# pipeline_pixels(responses_pixels, np.load("all_trials/images_pca_vectors_147.npy"), 15, 10e-5, "pixels")
-# pipeline_pixels(responses_pixels, np.load("all_trials/images_pca_vectors_147.npy"), 150, 10e-5, "pixels")
-# 1e-5
-
-
-# one Trial, pixels
-# images_pca_one_trial = np.load("all_trials/images_pca_vectors_147.npy")[0:147]
-# print(f"{images_pca_one_trial.shape=}")
-# pipeline_pixels(values, images_pca_one_trial, 25, 1e-5, "pixels_combined")
-
-# pipeline_pixels(responses_pixels, np.load("all_trials/images_pca_vectors_147.npy"), 25, 10e-5, "pixels_low_variance")
-
-# get_most_exciting_stimuli(common_pixels)
-# for i in range(4, 6):
-#     common_pixels = get_pixels_with_min_var_above_threshold(10**-i, 100)
-#     get_most_exciting_stimuli(common_pixels[0])
 def pipeline(stims_param_filepath, roi_data_filepath, response_data_filepath, run_name, n_components_responses,
              n_components_images, learning_rate, num_epochs, test_indices):
     directory_path = run_name
@@ -948,16 +876,6 @@ def pipeline(stims_param_filepath, roi_data_filepath, response_data_filepath, ru
     print(15 * "-" + "Tested the model" + 15 * "-")
 
 
-# one trial
-# pipeline("F0255/tseries_12/stimparams.dict", "F0255/1_roi_morphed.npy",
-#          "F0255/avg_responses_12_13_14_15_F0255.npy", "one_pc_responses", 1,
-#          147, 1e-3, 50,  [125,  51, 138,  19, 104,  12,  76,  31,  81,   9 , 26 , 96, 143 , 67 ,134])
-# all trials !!
-# with cross validation
-# pipeline("F0255/tseries_12/stimparams.dict", "F0255/1_roi_morphed.npy",
-#          "F0255/avg_responses_12_13_14_15_F0255.npy", "all_trials", 50,
-#           147, 1e-5, 250,  list(range(147)))
-
 def separate_trials(stims_param_filepath, roi_data_filepath, response_data_filepath, run_name, n_components_responses,
                     n_components_images, learning_rate, num_epochs, test_indices):
     directory_path = run_name
@@ -1008,53 +926,6 @@ def separate_trials(stims_param_filepath, roi_data_filepath, response_data_filep
     print(15 * "-" + "Tested the model" + 15 * "-")
 
 
-# test_indices = [125,  51, 138,  19, 104,  12,  76,  31,  81,   9 , 26 , 96, 143 , 67 ,134]
-# train_indices = [0, 1, 2, 3, 4, 5, 6, 7, 8, 10, 11, 13, 14, 15, 16, 17, 18, 20, 21, 22, 23, 24, 25, 27, 28, 29, 30, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 68, 69, 70, 71, 72, 73, 74, 75, 77, 78, 79, 80, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 97, 98, 99, 100, 101, 102, 103, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 126, 127, 128, 129, 130, 131, 132, 133, 135, 136, 137, 139, 140, 141, 142, 144, 145, 146]
-# separate_trials("F0255/tseries_15/stimparams.dict", "F0255/1_roi_morphed.npy",
-#          "F0255/tseries_15/response_array_1s_interval.npy", "separate_trials", 1,
-#          147, 1e-3, 5,  test_indices)
-
-
-# TESTING
-# test_indices = [125,51,138,19,104,12,76,31,81,9,26,96,143,67,134,272,198,285,166,251,159,223,178,228,156,173,243,290,214,281,419,345,432,313,398,306,370,325,375,303,320,390,437,361,428,566,492,579,460,545,453,517,472,522,450,467,537,584,508,575]
-# #
-#
-# train_indices = [number for number in range(588) if number not in test_indices]
-# images_pca = np.load("all_trials/images_pca_vectors_147.npy")
-# responses_pca = np.load("all_trials/responses_pca_vectors_25.npy")
-# losses_test = []
-# r_2_list = []
-# model_outputs = []
-# true_outputs = []
-# counter = 0
-# for i in train_indices:
-#     print(f"indice {i}")
-#     curr_output, curr_ground_truth, loss, r_2, r_squared = test_model("all_trials/model_200_0.001.pth", images_pca[i],
-#                responses_pca[i],
-#                "all_trials" + "/" + "pca_responses_" + str(25) + ".pkl",
-#                "all_trials" + "/scaler_responses.pkl",
-#                np.load("F0255/1_roi_morphed.npy"), 25, 147, str(i))
-#     model_outputs.append(curr_output)
-#     true_outputs.append(curr_ground_truth)
-#     losses_test.append(loss)
-#     r_2_list.append(r_2)
-# print(np.average(r_2_list))
-# # print(counter)
-# print(np.average(losses_test))
-# print(np.min(losses_test))
-# print(np.median(losses_test))
-# print(np.max(losses_test))
-#
-# true_outputs = np.array(true_outputs)
-# model_outputs = np.array(model_outputs)
-# ss_res = np.sum((true_outputs.flatten() - model_outputs.flatten()) ** 2)
-# # Calculate the total sum of squares
-# ss_tot = np.sum((true_outputs - np.mean(true_outputs)) ** 2)
-# # Calculate R^2
-# r_squared = 1 - (ss_res / ss_tot)
-# print(r_squared, "INSGESAMT R^2")
-
-
 def pipeline_full_images(run_name, learning_rate, num_epochs):
     directory_path = run_name
     os.makedirs(directory_path, exist_ok=True)
@@ -1087,9 +958,6 @@ def pipeline_full_images(run_name, learning_rate, num_epochs):
     train_save_model_cross_full_images(images, responses, num_epochs, learning_rate,
                                        run_name + "/model" + "_" + str(num_epochs) + "_" +
                                        str(learning_rate), run_name + "/model_plot", None)
-
-
-# pipeline_full_images("full_images_cross", 1e-3, 2)
 
 
 def plot_correlation():
@@ -1179,7 +1047,133 @@ def load_paper_data():
     print(all_stimulus.shape)
     return all_stimulus, all_responses
 
+"""data loading and PCA"""
+# images_responses, images, responses = match_pictures_with_response()
+# images_responses, images, responses = match_pictures_with_response(stims_param_name="F0255/tseries_12/stimparams.dict",roi_data_name="F0255/1_roi_morphed.npy", response_data_name="F0255/avg_responses_12_13_14_15_F0255.npy")
 
+# responses_pca = np.load("responses_F0255_25_pca.npy")
+# images_pca = np.load("images_F0255_147_pca.npy")
+
+# only select mask area:
+# roi_mask = np.load("F0255/1_roi_morphed.npy") # !!Select the correct mask!!
+# responses = np.array(responses).reshape(responses.shape[0], -1)[:, roi_mask.flatten()]
+# print(responses.shape)
+# response_data_pca = apply_pca(data=responses, n_components=25, response_data=True, mask=roi_mask, pca_vector=None)
+# # response_data_pca = apply_pca(data=responses, n_components=50, response_data=True, mask=roi_mask, pca_vector=response_data_pca[10])
+# np.save("responses_F0255_25_pca.npy", response_data_pca)
+# print(images.shape)
+# images = images.reshape(images.shape[0], 1920*2560)
+# images_pca = apply_pca(data=images, n_components=147, response_data=False)
+# np.save("images_F0255_147_pca.npy", images_pca)
+# 95 mit 102 aber kann das bild nicht mehr erkennen
+# 147 noch 100% variance
+
+"""pixel approach"""
+# combined both approaches for pixels
+# _, values, _ = find_pixels_with_most_and_least_variance(num_of_pixels=1000, threshold=10e-4)
+
+# common pixels
+# common_pixels, responses = get_pixel_with_most_variance(num_of_pixels=3) # 101 common
+# common_pixels,values, responses = get_pixel_with_most_variance(500, True)
+# common_pixels, responses = get_pixel_with_most_variance(num_of_pixels=3) # 1 common
+# common_pixels, responses = get_pixel_with_most_variance(num_of_pixels=140) # 70
+# print(f"{len(common_pixels)=}")
+# responses_pixels = get_pixels_all_responses(responses, common_pixels)
+# low_variance_pixels, responses = get_pixels_with_min_var_above_threshold(10**-4, 250)
+# low_variance_pixels, responses = get_pixels_with_min_var_above_threshold(10**-5, 50)
+# responses_pixels = get_pixels_all_responses(responses, low_variance_pixels)
+
+# pipeline_pixels(responses_pixels, np.load("all_trials/images_pca_vectors_147.npy"), 5, 10e-3, "pixels")
+# pipeline_pixels(responses_pixels, np.load("all_trials/images_pca_vectors_147.npy"), 15, 10e-5, "pixels")
+# pipeline_pixels(responses_pixels, np.load("all_trials/images_pca_vectors_147.npy"), 150, 10e-5, "pixels")
+# 1e-5
+
+# one Trial, pixels
+# images_pca_one_trial = np.load("all_trials/images_pca_vectors_147.npy")[0:147]
+# print(f"{images_pca_one_trial.shape=}")
+# pipeline_pixels(values, images_pca_one_trial, 25, 1e-5, "pixels_combined")
+
+# pipeline_pixels(responses_pixels, np.load("all_trials/images_pca_vectors_147.npy"), 25, 10e-5, "pixels_low_variance")
+
+# get_most_exciting_stimuli(common_pixels)
+# for i in range(4, 6):
+#     common_pixels = get_pixels_with_min_var_above_threshold(10**-i, 100)
+#     get_most_exciting_stimuli(common_pixels[0])
+
+"""full images approach"""
+# pipeline_full_images("full_images_cross", 1e-3, 2)
+
+"""average responses approach"""
+# one trial
+# pipeline("F0255/tseries_12/stimparams.dict", "F0255/1_roi_morphed.npy",
+#          "F0255/avg_responses_12_13_14_15_F0255.npy", "one_pc_responses", 1,
+#          147, 1e-3, 50,  [125,  51, 138,  19, 104,  12,  76,  31,  81,   9 , 26 , 96, 143 , 67 ,134])
+# all trials !!
+# with cross validation
+# pipeline("F0255/tseries_12/stimparams.dict", "F0255/1_roi_morphed.npy",
+#          "F0255/avg_responses_12_13_14_15_F0255.npy", "all_trials", 50,
+#           147, 1e-5, 250,  list(range(147)))
+
+# most exciting stimuli optimization
+# get_most_exciting_stimuli(common_pixels)
+
+"""testing a trained model separately"""
+# test_model("trained_model_weights_500.pth", images_pca[10], responses_pca[10], "pca_responses.pkl", "scaler_responses.pkl", np.load("1_roi_morphed.npy"))
+# for i in range(147):
+#     test_model("trained_model_weights_F0255_100.pth", images_pca[i], responses_pca[i],
+#                "pca_responses.pkl", "scaler_responses.pkl", np.load("F0255/1_roi_morphed.npy"))
+# test_model("trained_model_weights_F0255_100.pth", images_pca[9], responses_pca[9],
+#            "pca_responses.pkl", "scaler_responses.pkl", np.load("F0255/1_roi_morphed.npy"))
+# test_model("trained_model_weights_F0255_100.pth", images_pca[51], responses_pca[51],
+#            "pca_responses.pkl", "scaler_responses.pkl", np.load("F0255/1_roi_morphed.npy"))
+# test_model("trained_model_weights_F0255_100.pth", images_pca[125], responses_pca[125],
+#             "pca_responses.pkl", "scaler_responses.pkl", np.load("F0255/1_roi_morphed.npy"))
+
+# one trial training
+# test_indices = [125,  51, 138,  19, 104,  12,  76,  31,  81,   9 , 26 , 96, 143 , 67 ,134]
+# train_indices = [0, 1, 2, 3, 4, 5, 6, 7, 8, 10, 11, 13, 14, 15, 16, 17, 18, 20, 21, 22, 23, 24, 25, 27, 28, 29, 30, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 68, 69, 70, 71, 72, 73, 74, 75, 77, 78, 79, 80, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 97, 98, 99, 100, 101, 102, 103, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 126, 127, 128, 129, 130, 131, 132, 133, 135, 136, 137, 139, 140, 141, 142, 144, 145, 146]
+# separate_trials("F0255/tseries_15/stimparams.dict", "F0255/1_roi_morphed.npy",
+#          "F0255/tseries_15/response_array_1s_interval.npy", "separate_trials", 1,
+#          147, 1e-3, 5,  test_indices)
+# testing the model
+# test_indices = [125,51,138,19,104,12,76,31,81,9,26,96,143,67,134,272,198,285,166,251,159,223,178,228,156,173,243,290,214,281,419,345,432,313,398,306,370,325,375,303,320,390,437,361,428,566,492,579,460,545,453,517,472,522,450,467,537,584,508,575]
+# train_indices = [number for number in range(588) if number not in test_indices]
+# images_pca = np.load("all_trials/images_pca_vectors_147.npy")
+# responses_pca = np.load("all_trials/responses_pca_vectors_25.npy")
+# losses_test = []
+# r_2_list = []
+# model_outputs = []
+# true_outputs = []
+# counter = 0
+# for i in train_indices:
+#     print(f"indice {i}")
+#     curr_output, curr_ground_truth, loss, r_2, r_squared = test_model("all_trials/model_200_0.001.pth", images_pca[i],
+#                responses_pca[i],
+#                "all_trials" + "/" + "pca_responses_" + str(25) + ".pkl",
+#                "all_trials" + "/scaler_responses.pkl",
+#                np.load("F0255/1_roi_morphed.npy"), 25, 147, str(i))
+#     model_outputs.append(curr_output)
+#     true_outputs.append(curr_ground_truth)
+#     losses_test.append(loss)
+#     r_2_list.append(r_2)
+# print(np.average(r_2_list))
+# # print(counter)
+# print(np.average(losses_test))
+# print(np.min(losses_test))
+# print(np.median(losses_test))
+# print(np.max(losses_test))
+#
+# true_outputs = np.array(true_outputs)
+# model_outputs = np.array(model_outputs)
+# ss_res = np.sum((true_outputs.flatten() - model_outputs.flatten()) ** 2)
+# # Calculate the total sum of squares
+# ss_tot = np.sum((true_outputs - np.mean(true_outputs)) ** 2)
+# # Calculate R^2
+# r_squared = 1 - (ss_res / ss_tot)
+# print(r_squared, "INSGESAMT R^2")
+
+
+"""simulated data pipeline"""
 # load paper data and train model
 all_stimulus, all_responses = load_paper_data()
 # # split data into train and test sets
